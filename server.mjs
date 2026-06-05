@@ -544,6 +544,11 @@ server.on('error', (err) => {
 // Restore any persisted ClickUp connection before we start accepting requests.
 await initClickup();
 
+const HOME_URL = `http://localhost:${PORT}`;
+// Interactive only when we own a real terminal on both ends. Piped/CI runs skip
+// the hotkeys and rely on the SIGINT/SIGTERM handlers below for a clean exit.
+const INTERACTIVE = process.stdin.isTTY && process.stdout.isTTY;
+
 server.listen(PORT, HOST, () => {
   const cands = lanCandidates();
   const [primary, ...alts] = cands;
@@ -551,7 +556,7 @@ server.listen(PORT, HOST, () => {
     '',
     '  Jelly Local Sync',
     '  ────────────────',
-    `  Open in browser:  http://localhost:${PORT}`,
+    `  Open in browser:  ${HOME_URL}`,
     primary ? `                    http://${primary.address}:${PORT}  (LAN, for iOS over Wi-Fi)` : '',
     // Show the runners-up so a user whose phone can't reach the auto-picked
     // address can spot the right interface without guessing.
@@ -560,21 +565,17 @@ server.listen(PORT, HOST, () => {
     '  The page shows a per-session URL, paste that into the Jelly SDK',
     '  endpoint setting on your device. Refresh the page for a fresh',
     '  isolated session.',
-    '',
+    // Hotkey hint only when there's an interactive terminal to read them.
+    INTERACTIVE && '  Press o to open the dashboard, Ctrl+C twice to quit.',
   ].filter(Boolean);
   console.log(lines.join('\n'));
-  openBrowser(`http://localhost:${PORT}`);
+  if (autoOpenAllowed()) doOpen(HOME_URL);
+  startInteractive();
 });
 
-// Pop the dashboard open in the default browser on launch, the whole UX is
-// then "run the command, scan the QR". Best-effort and fire-and-forget: a
+// Open the dashboard in the default browser. Best-effort, fire-and-forget: a
 // failure (headless box, no GUI) is silent, the printed URL is the fallback.
-// Skipped when stdout isn't a TTY (piped/CI) or when explicitly opted out via
-// `--no-open` / `NO_OPEN=1` (e.g. adb-reverse / remote setups that don't want
-// a local tab popping up).
-function openBrowser(url) {
-  if (process.argv.includes('--no-open') || process.env.NO_OPEN) return;
-  if (!process.stdout.isTTY) return;
+function doOpen(url) {
   const cmd = process.platform === 'darwin' ? 'open'
             : process.platform === 'win32' ? 'cmd'
             : 'xdg-open';
@@ -583,3 +584,91 @@ function openBrowser(url) {
     spawn(cmd, args, { stdio: 'ignore', detached: true }).on('error', () => {}).unref();
   } catch { /* no browser / no GUI, printed URL is the fallback */ }
 }
+
+// Auto-open on launch keeps the "run the command, scan the QR" UX. Skipped when
+// stdout isn't a TTY (piped/CI) or when opted out via `--no-open` / `NO_OPEN=1`
+// (e.g. adb-reverse / remote setups that don't want a local tab popping up). The
+// `o` hotkey opens regardless, since that's an explicit request.
+function autoOpenAllowed() {
+  if (process.argv.includes('--no-open') || process.env.NO_OPEN) return false;
+  return process.stdout.isTTY;
+}
+
+// Raw-mode keypress handling. Putting the terminal in raw mode is what lets us
+// read single keys (o) without Enter, and, crucially, it stops the terminal
+// from turning Ctrl+Z into a SIGTSTP suspend, which is the footgun that strands
+// the port (a suspended process keeps the socket bound). In raw mode Ctrl+C and
+// Ctrl+Z arrive as bytes (\x03 / \x1a) for us to handle.
+const ARM_SECONDS = 5;
+let quitArmed = false;
+let quitTicker = null;     // per-second countdown interval while armed
+let quitRemaining = 0;
+
+function startInteractive() {
+  if (!INTERACTIVE) return;
+  process.stdin.setRawMode(true);
+  process.stdin.resume();
+  process.stdin.setEncoding('utf8');
+  process.stdin.on('data', onKey);
+}
+
+function onKey(key) {
+  if (key === '\u0003') return armOrQuit();   // Ctrl+C
+  if (key === '\u001a') {                      // Ctrl+Z (would otherwise suspend + strand the port)
+    process.stdout.write('\n  Ctrl+Z is disabled here (it would strand the port). Press Ctrl+C twice to quit.\n');
+    return;
+  }
+  if (key.toLowerCase() === 'o') doOpen(HOME_URL);
+}
+
+// First Ctrl+C arms and shows a live countdown; a second Ctrl+C within the
+// window quits (shutdown frees the port). When the countdown hits zero the arm
+// resets, so one reflexive Ctrl+C earlier in the session can't make a
+// much-later single press quit unexpectedly.
+function armOrQuit() {
+  if (quitArmed) return shutdown();
+  quitArmed = true;
+  quitRemaining = ARM_SECONDS;
+  process.stdout.write('\n');
+  renderCountdown();
+  clearInterval(quitTicker);
+  quitTicker = setInterval(() => {
+    quitRemaining -= 1;
+    if (quitRemaining <= 0) disarm();
+    else renderCountdown();
+  }, 1000);
+  quitTicker.unref?.();
+}
+
+// Rewrite the countdown line in place: \r returns to column 0, \u001b[K clears
+// to end of line so the previous number doesn't linger.
+function renderCountdown() {
+  process.stdout.write(`\r\u001b[K  Press Ctrl+C again to quit  (${quitRemaining}s)`);
+}
+
+function disarm() {
+  clearInterval(quitTicker);
+  quitTicker = null;
+  quitArmed = false;
+  process.stdout.write('\r\u001b[K  Quit cancelled, still running.\n');
+}
+
+let shuttingDown = false;
+function shutdown() {
+  if (shuttingDown) return;
+  shuttingDown = true;
+  clearInterval(quitTicker);
+  if (INTERACTIVE) process.stdout.write('\r\u001b[K');   // wipe any countdown line
+  process.stdout.write('\n  Shutting down. Port released.\n');
+  // SSE listeners hold sockets open indefinitely, so don't wait on server.close
+  // to drain, stop accepting new connections and exit. The OS frees the port
+  // on exit, which is the whole point: no stale bind left behind.
+  try { server.close(); } catch { /* not listening yet */ }
+  process.exit(0);
+}
+
+// Non-interactive exits (piped/CI) and external signals still shut down cleanly.
+process.on('SIGINT', shutdown);
+process.on('SIGTERM', shutdown);
+// Always hand the terminal back, however we exit.
+process.on('exit', () => { try { if (process.stdin.isTTY) process.stdin.setRawMode(false); } catch {} });
