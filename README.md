@@ -79,6 +79,17 @@ Each annotation arrives as JSON over `POST /r/<token>/sessions/<sid>/annotations
 
 The SDK also pings `POST /r/<token>/hello` with device info (model, OS version, app name) on connect and every 12 seconds (the dashboard's manual-probe button waits up to 15 seconds for a heartbeat to decide "connected" vs "stale"). The header status line uses this to show e.g. **Pixel 7 · Android 14, Connected** or **Last seen 2m ago** so you can tell at a glance whether the cable is still good.
 
+## ClickUp tickets
+
+Push any annotation straight into ClickUp as a **Task or Bug** — comment as the description, severity mapped to priority, screenshot attached — or use **Create multiple tickets** to file a batch into one list at once.
+
+Connect once from the dashboard (**Connect → ClickUp**):
+
+- **Quickest:** paste a ClickUp **personal API token** (`pk_…`, from ClickUp → Settings → Apps). No app to register.
+- **OAuth** (under *Advanced*): register a ClickUp OAuth app once and approve in a popup. The setup form shows the exact redirect URL to use; alternatively set `CLICKUP_CLIENT_ID` / `CLICKUP_CLIENT_SECRET`.
+
+The token/credentials are stored **server-side only** under `~/.jelly-local-sync/` (never in the browser or the repo) and persist across restarts; **Disconnect** clears them. If your workspace has a custom **Bug** task type, the Bug toggle creates a real Bug; otherwise it prefixes the title with 🐞. The first authorized workspace is used.
+
 ## Configuration
 
 ```bash

@@ -15,8 +15,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   severity mapped to priority, screenshot attached — plus a **"Create multiple
   tickets"** bulk flow that tickets every selected annotation into one
   space/list. The ClickUp logo appears throughout, and the footer button shows
-  the connected workspace. Self-contained in `clickup.mjs`; setup documented in
-  `SETUP_CLICKUP.md`.
+  the connected workspace. Self-contained in `clickup.mjs`; usage is documented
+  in the README.
 - **Session persistence.** A browser refresh now re-joins the same session
   instead of silently starting empty, and buffered screenshots survive the
   reload too (the SSE replay re-advertises them). A confirm-gated **New session**
