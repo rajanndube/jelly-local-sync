@@ -25,7 +25,7 @@ Then:
 2. **Scan the QR code** with your phone, or copy the **Endpoint URL** the page shows (a one-time per-session URL like `http://localhost:7777/r/<token>`) and paste it into the Jelly SDK's **Endpoint** setting.
 3. Toggle **Sync** on, and annotate. The page updates live.
 
-Refresh the page to start a fresh isolated session. The old URL stays in memory until the process exits but no longer surfaces in the UI.
+Refreshing the page **keeps your session** — the feed and its screenshots survive a reload. To start a fresh, empty capture, use the **New session** button in the sidebar (it also rotates the URL, so devices re-scan to reconnect); restarting the server resets too.
 
 > Running from a clone instead of npm? `node server.mjs` does the same thing.
 >
@@ -71,13 +71,13 @@ Same machine, same origin, paste the URL straight in. CORS is open, no tunneling
 
 Each annotation arrives as JSON over `POST /r/<token>/sessions/<sid>/annotations`, then the SDK uploads the baked screenshot as binary to `POST /r/<token>/annotations/<id>/image`. The page subscribes to `/r/<token>/events` (Server-Sent Events) and renders cards with:
 
-- the baked screenshot (if uploaded)
+- the baked screenshot (if uploaded), with **Copy** / **Open** actions overlaid on the image itself
 - the comment
 - intent / severity / kind badges
 - element + source-file metadata
-- buttons to copy markdown, copy the raw comment, or copy the image to clipboard
+- buttons to copy markdown or the raw comment, and to **create a ClickUp ticket** (see below)
 
-The SDK also pings `POST /r/<token>/hello` with device info (model, OS version, app name) on connect and every 12 seconds (the dashboard's manual-probe button waits up to 15 seconds for a heartbeat to decide "connected" vs "stale"). The header status line uses this to show e.g. **Pixel 7 · Android 14, Connected** or **Last seen 2m ago** so you can tell at a glance whether the cable is still good.
+The SDK also pings `POST /r/<token>/hello` with device info (model, OS version, app name) on connect and every 12 seconds. The sidebar **Devices** list uses this to show each connected device (e.g. **Pixel 7 · Android 14**) with a live/stale dot and a per-device annotation count, so you can tell at a glance whether the cable is still good; click a device to filter the feed to it.
 
 ## ClickUp tickets
 
@@ -117,10 +117,14 @@ The HTTP shape under `/r/<token>/...` is a subset of the MCP `/sessions` contrac
 | POST   | `/r/:token/annotations/:aid/image`   | Binary image upload (extension) |
 | GET    | `/r/:token/annotations/:aid/image`   | Image bytes |
 
-Storage is in-memory and per-token. Restarting the server clears everything.
+A few routes are process-global rather than per-token: `GET /` serves the current session token (a refresh re-joins it), `POST /session/new` rotates it, and `/clickup/*` drives the ClickUp integration. Because these need no token, they assume a trusted local network (see Security model).
 
-Per-request body caps: **256 KB** for JSON payloads, **25 MB** for binary image uploads. Oversized bodies are rejected with 413. There is no eviction of in-memory rooms between sessions, a single Node process accumulating thousands of tokens with image uploads will grow forever; the intended lifecycle is "restart between QA sessions", consistent with `npx jelly-local-sync` usage. If you keep one process up for days, restart it periodically.
+Storage is in-memory, one active session (room) per running server. A page refresh re-joins it; **New session** or restarting the server clears everything.
+
+Per-request body caps: **256 KB** for JSON payloads, **25 MB** for binary image uploads. Oversized bodies are rejected with 413. **New session** drops the previous room (freeing its images), but a single long-lived session keeps accumulating uploaded images in memory; the intended lifecycle is "restart between QA sessions", consistent with `npx jelly-local-sync` usage. If you keep one process up for days, restart it periodically.
 
 ## Security model
 
 The token is a 64-bit random hex string. Knowing the URL is the only access control, which is fine for a local-network tool. The server defaults to `0.0.0.0` so phones on the same Wi-Fi can reach it; tighten with `HOST=127.0.0.1` if you only need same-machine access.
+
+The process-global control routes (`/session/new`, `/clickup/*`) carry no token, so anything that can reach the host:port can hit them (start a new session, drive the ClickUp connection). This is consistent with the trusted-local-network assumption above — don't expose the server to an untrusted network. ClickUp credentials and tokens are held server-side only (under `~/.jelly-local-sync/`), never sent to the browser.
