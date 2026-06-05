@@ -382,6 +382,63 @@
     .btn-ghost:hover { background: var(--surface-hi); border-color: var(--border-hi); }
   }
 
+  /* ── Integrations (ClickUp · Jira · Linear) ─────────────────────────── */
+  /* Rail-footer "Connect" button. Mirrors .troubleshoot-btn; gains a green dot
+     and the workspace name once a provider is connected. */
+  .intg-btn {
+    width: 100%; display: flex; align-items: center; justify-content: center; gap: 8px;
+    background: transparent; border: 1px solid var(--border); border-radius: 10px; padding: 9px 14px;
+    color: var(--text-dim); font-size: 12.5px; cursor: pointer;
+    transition: color 0.12s ease, background 0.12s ease, border-color 0.12s ease;
+  }
+  .intg-btn svg { opacity: 0.75; }
+  .intg-btn .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 8px var(--accent-soft); flex-shrink: 0; }
+  .intg-btn #intg-btn-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  @media (hover: hover) and (pointer: fine) {
+    .intg-btn:hover { color: var(--text); background: var(--surface-hi); border-color: var(--border-hi); }
+  }
+
+  .intg-list { display: flex; flex-direction: column; gap: 10px; }
+  .intg-row { display: flex; align-items: center; gap: 12px; padding: 12px 14px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface-2); }
+  .intg-row.soon { opacity: 0.55; }
+  .intg-logo { width: 30px; height: 30px; border-radius: 7px; flex-shrink: 0; display: grid; place-items: center; font-weight: 700; font-size: 12px; color: #fff; }
+  .intg-meta { flex: 1; min-width: 0; }
+  .intg-name { font-size: 13.5px; font-weight: 600; color: var(--text); }
+  .intg-sub { font-size: 11.5px; color: var(--text-mute); margin-top: 2px; }
+  .intg-sub code { font: 11px ui-monospace, Menlo, monospace; color: var(--text-dim); }
+  .intg-badge { font-size: 10.5px; color: var(--text-mute); border: 1px solid var(--border); border-radius: 999px; padding: 3px 9px; flex-shrink: 0; }
+  .intg-status { display: inline-flex; align-items: center; gap: 6px; font-size: 11.5px; color: var(--accent-hi); flex-shrink: 0; }
+  .intg-status .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--accent); }
+
+  /* ClickUp first-run setup (in the integrations modal) */
+  .cu-setup { display: flex; flex-direction: column; gap: 14px; }
+  .cu-back { align-self: flex-start; background: transparent; border: 0; color: var(--text-dim); font-size: 12px; padding: 2px 0; }
+  .cu-back:hover { color: var(--text); background: transparent; }
+  .cu-lead { font-size: 12px; color: var(--text-mute); line-height: 1.5; margin: 0; }
+  .cu-steps { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 9px; font-size: 12.5px; color: var(--text-dim); line-height: 1.5; }
+  .cu-steps b { color: var(--text); font-weight: 600; }
+  .cu-redirect { display: flex; gap: 6px; align-items: stretch; margin-top: 6px; }
+  .cu-redirect code { flex: 1; min-width: 0; background: var(--surface-2); border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px; font: 11.5px ui-monospace, Menlo, monospace; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; user-select: all; }
+  .cu-redirect button { font-size: 12px; padding: 6px 12px; }
+
+  /* Create-ticket form */
+  .tk-form { display: flex; flex-direction: column; gap: 14px; }
+  .tk-field { display: flex; flex-direction: column; gap: 6px; }
+  .tk-field > label { font-size: 11px; color: var(--text-mute); }
+  .tk-input, .tk-select {
+    width: 100%; box-sizing: border-box; background: var(--surface-2); border: 1px solid var(--border); border-radius: 8px;
+    padding: 10px 12px; font: inherit; font-size: 13px; color: var(--text);
+  }
+  .tk-input::placeholder { color: var(--text-mute); }
+  textarea.tk-input { resize: vertical; min-height: 60px; line-height: 1.45; }
+  .tk-seg { display: flex; gap: 4px; padding: 3px; background: var(--surface-2); border: 1px solid var(--border); border-radius: 8px; }
+  .tk-seg button { flex: 1; background: transparent; border: 1px solid transparent; color: var(--text-dim); padding: 7px 8px; border-radius: 6px; font-size: 12.5px; }
+  .tk-seg button.active { background: var(--surface-hi); border-color: var(--border-hi); color: var(--text); }
+  .tk-err { font-size: 12px; color: #fca5a5; min-height: 1px; }
+  .tk-success { text-align: center; padding: 8px 4px 4px; }
+  .tk-success .ico { font-size: 38px; }
+  .tk-success p { font-size: 13.5px; color: var(--text); margin: 8px 0 18px; }
+
   /* ── Troubleshooter ─────────────────────────────────────────────────── */
   .ts-modal .modal-card { max-width: min(94vw, 560px); max-height: 88vh; overflow-y: auto; }
   .ts-head { display: flex; align-items: flex-start; gap: 10px; margin-bottom: 4px; }
@@ -475,6 +532,10 @@
           <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 3v10M3 8h10"/></svg>
           Connect a device
         </button>
+        <button class="intg-btn" id="integrations-btn" type="button">
+          <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6.5 9.5l-2 2a2.1 2.1 0 0 1-3-3l2-2"/><path d="M9.5 6.5l2-2a2.1 2.1 0 0 1 3 3l-2 2"/><path d="M6 10l4-4"/></svg>
+          <span id="intg-btn-label">Connect</span>
+        </button>
         <button class="troubleshoot-btn" id="troubleshoot-btn" type="button">
           <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 1.5l6 3v4c0 3.5-2.4 5.6-6 6.5-3.6-.9-6-3-6-6.5v-4z"/><path d="M8 5.5v3"/><path d="M8 10.8v.01"/></svg>
           Troubleshoot
@@ -519,6 +580,26 @@
         <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 4l8 8M12 4l-8 8"/></svg>
       </button>
       <div id="troubleshoot-mount"></div>
+    </div>
+  </div>
+
+  <div id="integrations-modal" class="modal-backdrop" hidden>
+    <div class="modal-card" role="dialog" aria-modal="true" aria-label="Connect an integration" style="position: relative; max-width: 460px;">
+      <button class="modal-close" id="integrations-close" type="button" aria-label="Close">
+        <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 4l8 8M12 4l-8 8"/></svg>
+      </button>
+      <h3 class="modal-title">Connect an integration</h3>
+      <p class="modal-body" style="margin-bottom: 16px;">Push synced annotations straight into your tracker as tickets.</p>
+      <div class="intg-list" id="integrations-list"></div>
+    </div>
+  </div>
+
+  <div id="ticket-modal" class="modal-backdrop" hidden>
+    <div class="modal-card" role="dialog" aria-modal="true" aria-label="Create ticket" style="position: relative; max-width: 460px;">
+      <button class="modal-close" id="ticket-close" type="button" aria-label="Close">
+        <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 4l8 8M12 4l-8 8"/></svg>
+      </button>
+      <div id="ticket-mount"></div>
     </div>
   </div>
 
@@ -939,6 +1020,301 @@
   $('connect-btn').addEventListener('click', openConnectModal);
   $('connect-close').addEventListener('click', closeConnectModal);
   $('connect-modal').addEventListener('click', (e) => { if (e.target === $('connect-modal')) closeConnectModal(); });
+
+  // ── Integrations (ClickUp live; Jira / Linear coming soon) ────────────────
+  // The ClickUp connection is process-global on the server (one OAuth token per
+  // machine), so the page only mirrors /clickup/status and drives the OAuth
+  // popup. The popup's callback page postMessages back here when it lands.
+  let clickup = { configured: false, connected: false, teamName: null };
+
+  const PROVIDERS = [
+    { key: 'clickup', name: 'ClickUp', color: '#7B68EE', initials: 'CU', live: true },
+    { key: 'jira', name: 'Jira', color: '#2684FF', initials: 'J', live: false },
+    { key: 'linear', name: 'Linear', color: '#5E6AD2', initials: 'L', live: false },
+  ];
+
+  async function refreshClickup() {
+    try { clickup = await (await fetch('/clickup/status')).json(); }
+    catch { clickup = { configured: false, connected: false, teamName: null }; }
+    renderIntgButton();
+    if (!$('integrations-modal').hidden) renderIntgList();
+  }
+
+  function renderIntgButton() {
+    const btn = $('integrations-btn');
+    btn.querySelector('.dot')?.remove();
+    if (clickup.connected) {
+      $('intg-btn-label').textContent = clickup.teamName ? `ClickUp · ${clickup.teamName}` : 'ClickUp connected';
+      const dot = document.createElement('span'); dot.className = 'dot';
+      btn.insertBefore(dot, btn.firstChild);
+    } else {
+      $('intg-btn-label').textContent = 'Connect';
+    }
+  }
+
+  function renderIntgList() {
+    const list = $('integrations-list');
+    list.innerHTML = '';
+    for (const p of PROVIDERS) {
+      const row = document.createElement('div');
+      row.className = 'intg-row' + (p.live ? '' : ' soon');
+      const logo = document.createElement('div');
+      logo.className = 'intg-logo'; logo.style.background = p.color; logo.textContent = p.initials;
+      const meta = document.createElement('div'); meta.className = 'intg-meta';
+      const name = document.createElement('div'); name.className = 'intg-name'; name.textContent = p.name;
+      const sub = document.createElement('div'); sub.className = 'intg-sub';
+      meta.append(name, sub);
+      row.append(logo, meta);
+
+      if (!p.live) {
+        sub.textContent = 'Create tickets from annotations';
+        const badge = document.createElement('span'); badge.className = 'intg-badge'; badge.textContent = 'Coming soon';
+        row.appendChild(badge);
+      } else if (clickup.connected) {
+        sub.textContent = clickup.teamName ? `Connected · ${clickup.teamName}` : 'Connected';
+        const status = document.createElement('span'); status.className = 'intg-status';
+        const dot = document.createElement('span'); dot.className = 'dot';
+        status.append(dot, document.createTextNode('Connected'));
+        const dis = document.createElement('button'); dis.textContent = 'Disconnect';
+        dis.style.fontSize = '12px'; dis.style.padding = '6px 11px';
+        dis.addEventListener('click', disconnectClickup);
+        row.append(status, dis);
+      } else if (!clickup.configured) {
+        sub.textContent = 'Create tickets from annotations';
+        const btn = document.createElement('button'); btn.className = 'primary'; btn.textContent = 'Set up';
+        btn.addEventListener('click', renderClickupSetup);
+        row.appendChild(btn);
+      } else {
+        sub.textContent = 'Create tickets from annotations';
+        const btn = document.createElement('button'); btn.className = 'primary'; btn.textContent = 'Connect';
+        btn.addEventListener('click', () => connectClickup(btn));
+        row.appendChild(btn);
+      }
+      list.appendChild(row);
+    }
+  }
+
+  // First-run setup, shown inside the integrations modal when ClickUp has no
+  // OAuth app configured yet. Walks through registering an app, shows the exact
+  // Redirect URL to paste (port-correct), and collects the Client ID + Secret.
+  // On save the creds go server-side and we drop straight into the OAuth popup.
+  function renderClickupSetup() {
+    const redirect = clickup.redirectUri || (location.origin + '/clickup/callback');
+    $('integrations-list').innerHTML = `
+      <div class="cu-setup">
+        <button class="cu-back" id="cu-back" type="button">← All integrations</button>
+        <p class="cu-lead">One-time setup. Register a ClickUp app, then paste its keys here. They're stored on this machine only — never in the browser or the repo.</p>
+        <ol class="cu-steps">
+          <li>In ClickUp: <b>Settings → ClickUp API → Create an App</b>.</li>
+          <li>Set the app's <b>Redirect URL</b> to exactly this:
+            <div class="cu-redirect"><code id="cu-redirect">${escapeHtml(redirect)}</code><button id="cu-copy" type="button">Copy</button></div>
+          </li>
+          <li>Copy the generated <b>Client ID</b> and <b>Secret</b> into the fields below.</li>
+        </ol>
+        <div class="tk-field"><label for="cu-id">Client ID</label><input id="cu-id" class="tk-input" type="text" placeholder="ABCDEF..." autocomplete="off" spellcheck="false"></div>
+        <div class="tk-field"><label for="cu-secret">Client Secret</label><input id="cu-secret" class="tk-input" type="password" placeholder="••••••••" autocomplete="off" spellcheck="false"></div>
+        <div class="tk-err" id="cu-err"></div>
+        <div class="modal-actions">
+          <button id="cu-cancel" class="btn-ghost">Cancel</button>
+          <button id="cu-save" class="primary">Save &amp; Connect</button>
+        </div>
+      </div>`;
+    $('cu-back').addEventListener('click', renderIntgList);
+    $('cu-cancel').addEventListener('click', renderIntgList);
+    $('cu-copy').addEventListener('click', () => copy(redirect, $('cu-copy')));
+    $('cu-save').addEventListener('click', saveClickupConfig);
+    setTimeout(() => $('cu-id').focus(), 0);
+  }
+
+  async function saveClickupConfig() {
+    const client_id = $('cu-id').value.trim();
+    const client_secret = $('cu-secret').value.trim();
+    const err = $('cu-err'); err.textContent = '';
+    if (!client_id || !client_secret) { err.textContent = 'Both Client ID and Secret are required.'; return; }
+    const btn = $('cu-save'); btn.disabled = true; btn.textContent = 'Saving…';
+    try {
+      const r = await fetch('/clickup/config', {
+        method: 'POST', headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ client_id, client_secret }),
+      });
+      const data = await r.json().catch(() => ({}));
+      if (!r.ok || data.error) throw new Error(data.error || ('http ' + r.status));
+      await refreshClickup();   // configured is now true
+      connectClickup();         // straight into the one-click OAuth popup
+      renderIntgList();         // back to the list (flips to Connected on success)
+    } catch (e) {
+      err.textContent = 'Save failed: ' + e.message;
+      btn.disabled = false; btn.textContent = 'Save & Connect';
+    }
+  }
+
+  // Open the consent screen in a popup. Because the user is already logged in on
+  // app.clickup.com, ClickUp shows a one-click Allow; the callback page closes
+  // itself and postMessages us. Falls back to a toast if the popup is blocked.
+  function connectClickup(btn) {
+    const w = 600, h = 720;
+    const left = window.screenX + Math.max(0, (window.outerWidth - w) / 2);
+    const top = window.screenY + Math.max(0, (window.outerHeight - h) / 2);
+    const popup = window.open('/clickup/auth', 'jelly-clickup', `width=${w},height=${h},left=${left},top=${top}`);
+    if (!popup) { toast('Popup blocked — allow popups and retry'); return; }
+    if (btn) { btn.disabled = true; btn.textContent = 'Waiting…'; }
+  }
+
+  function disconnectClickup() {
+    fetch('/clickup/disconnect', { method: 'POST' })
+      .then(() => { toast('ClickUp disconnected'); refreshClickup(); })
+      .catch(() => toast('Disconnect failed'));
+  }
+
+  window.addEventListener('message', (e) => {
+    if (e.data?.source !== 'jelly-clickup') return;
+    toast(e.data.ok ? 'ClickUp connected' : 'ClickUp connection failed');
+    refreshClickup();
+  });
+
+  function openIntegrations() {
+    renderIntgList();
+    $('integrations-modal').hidden = false;
+    setTimeout(() => $('integrations-close').focus(), 0);
+    refreshClickup();
+  }
+  function closeIntegrations() { $('integrations-modal').hidden = true; }
+  $('integrations-btn').addEventListener('click', openIntegrations);
+  $('integrations-close').addEventListener('click', closeIntegrations);
+  $('integrations-modal').addEventListener('click', (e) => { if (e.target === $('integrations-modal')) closeIntegrations(); });
+
+  // ── Create ClickUp ticket from one annotation ────────────────────────────
+  let ticketState = null;
+
+  function openTicketModal(a, index) {
+    if (!clickup.connected) { toast('Connect ClickUp first'); openIntegrations(); return; }
+    ticketState = { a, index };
+    const defaultName = ((a.comment || '').trim().split('\n')[0] || a.element || 'QA annotation').slice(0, 120);
+    $('ticket-mount').innerHTML = `
+      <h3 class="modal-title">Create ClickUp ticket</h3>
+      <div class="tk-form">
+        <div class="tk-field">
+          <label>Type</label>
+          <div class="tk-seg" id="tk-type">
+            <button type="button" data-type="task" class="active">Task</button>
+            <button type="button" data-type="bug">Bug</button>
+          </div>
+        </div>
+        <div class="tk-field">
+          <label for="tk-space">Space</label>
+          <select id="tk-space" class="tk-select"><option value="">Loading spaces…</option></select>
+        </div>
+        <div class="tk-field">
+          <label for="tk-list">List</label>
+          <select id="tk-list" class="tk-select" disabled><option value="">Select a space first</option></select>
+        </div>
+        <div class="tk-field">
+          <label for="tk-name">Title</label>
+          <input id="tk-name" class="tk-input" type="text" value="${escapeHtml(defaultName)}">
+        </div>
+        <div class="tk-err" id="tk-err"></div>
+        <div class="modal-actions">
+          <button id="tk-cancel" class="btn-ghost">Cancel</button>
+          <button id="tk-create" class="primary">Create ticket</button>
+        </div>
+      </div>`;
+    const seg = $('tk-type');
+    seg.addEventListener('click', (e) => {
+      const b = e.target.closest('button[data-type]'); if (!b) return;
+      seg.querySelectorAll('button').forEach((x) => x.classList.toggle('active', x === b));
+    });
+    $('tk-cancel').addEventListener('click', closeTicketModal);
+    $('tk-create').addEventListener('click', submitTicket);
+    $('tk-space').addEventListener('change', () => loadLists($('tk-space').value));
+    $('ticket-modal').hidden = false;
+    setTimeout(() => $('tk-name').focus(), 0);
+    loadSpaces();
+  }
+  function closeTicketModal() { $('ticket-modal').hidden = true; $('ticket-mount').innerHTML = ''; ticketState = null; }
+  function tkError(msg) { const e = $('tk-err'); if (e) e.textContent = msg || ''; }
+
+  async function loadSpaces() {
+    const sel = $('tk-space');
+    try {
+      const r = await fetch('/clickup/spaces');
+      if (r.status === 401) { tkError('ClickUp session expired — reconnect from Connect.'); return; }
+      const { spaces = [], error } = await r.json();
+      if (error) { tkError(error); return; }
+      sel.innerHTML = spaces.length
+        ? '<option value="">Select a space…</option>' + spaces.map((s) => `<option value="${escapeHtml(s.id)}">${escapeHtml(s.name)}</option>`).join('')
+        : '<option value="">No spaces found</option>';
+    } catch { tkError('Could not load spaces.'); }
+  }
+
+  async function loadLists(spaceId) {
+    const sel = $('tk-list');
+    tkError('');
+    if (!spaceId) { sel.disabled = true; sel.innerHTML = '<option value="">Select a space first</option>'; return; }
+    sel.disabled = true; sel.innerHTML = '<option value="">Loading lists…</option>';
+    try {
+      const { lists = [], error } = await (await fetch('/clickup/lists?space_id=' + encodeURIComponent(spaceId))).json();
+      if (error) { tkError(error); sel.innerHTML = '<option value="">—</option>'; return; }
+      if (!lists.length) { sel.innerHTML = '<option value="">No lists in this space</option>'; return; }
+      sel.innerHTML = '<option value="">Select a list…</option>' + lists.map((l) => `<option value="${escapeHtml(l.id)}">${escapeHtml(l.name)}</option>`).join('');
+      sel.disabled = false;
+    } catch { tkError('Could not load lists.'); sel.innerHTML = '<option value="">—</option>'; }
+  }
+
+  // ClickUp priority: 1 urgent, 2 high, 3 normal, 4 low. Map from QA severity.
+  function severityToPriority(sev) {
+    switch ((sev || '').toLowerCase()) {
+      case 'critical': case 'blocker': return 1;
+      case 'high': case 'major': return 2;
+      case 'low': case 'minor': case 'trivial': return 4;
+      default: return 3;
+    }
+  }
+
+  async function submitTicket() {
+    if (!ticketState?.a) return;
+    const { a, index } = ticketState;
+    const listId = $('tk-list').value;
+    const name = $('tk-name').value.trim();
+    const type = $('tk-type').querySelector('button.active')?.dataset.type || 'task';
+    tkError('');
+    if (!listId) { tkError('Pick a list.'); return; }
+    if (!name) { tkError('Title can’t be empty.'); return; }
+    const btn = $('tk-create'); btn.disabled = true; btn.textContent = 'Creating…';
+    try {
+      const r = await fetch('/clickup/task', {
+        method: 'POST', headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          list_id: listId, type, name,
+          markdown: annotationMarkdown(a, index ?? 0),
+          priority: severityToPriority(a.severity),
+          roomToken: TOKEN, annotationId: a.id,
+        }),
+      });
+      const data = await r.json().catch(() => ({}));
+      if (!r.ok || data.error) throw new Error(data.error || ('http ' + r.status));
+      renderTicketSuccess(type, data.url, data.attached);
+    } catch (e) {
+      tkError('Create failed: ' + e.message);
+      btn.disabled = false; btn.textContent = 'Create ticket';
+    }
+  }
+
+  function renderTicketSuccess(type, url, attached) {
+    $('ticket-mount').innerHTML = `
+      <div class="tk-success">
+        <div class="ico">✅</div>
+        <p>${type === 'bug' ? 'Bug' : 'Task'} created in ClickUp${attached ? ' with the screenshot attached' : ''}.</p>
+        <div class="modal-actions" style="justify-content: center;">
+          <button id="tk-done" class="btn-ghost">Done</button>
+          <button id="tk-open" class="primary">Open in ClickUp</button>
+        </div>
+      </div>`;
+    $('tk-done').addEventListener('click', closeTicketModal);
+    $('tk-open').addEventListener('click', () => { window.open(url, '_blank'); closeTicketModal(); });
+    setTimeout(() => $('tk-open').focus(), 0);
+  }
+  $('ticket-close').addEventListener('click', closeTicketModal);
+  $('ticket-modal').addEventListener('click', (e) => { if (e.target === $('ticket-modal')) closeTicketModal(); });
 
   // ── Troubleshooter ───────────────────────────────────────────────────────
   // A two-sided connection diagnostic. The laptop self-checks what it can see
@@ -1474,6 +1850,11 @@
     copyText.addEventListener('click', () => copy(a.comment ?? '', copyText));
     actions.appendChild(copyText);
 
+    const ticket = document.createElement('button');
+    ticket.textContent = 'Create ticket';
+    ticket.addEventListener('click', () => openTicketModal(a, index));
+    actions.appendChild(ticket);
+
     if (imagesPresent.has(a.id)) {
       const copyImg = document.createElement('button');
       copyImg.textContent = 'Copy image';
@@ -1545,6 +1926,8 @@
   $('confirm-modal').addEventListener('click', (e) => { if (e.target === $('confirm-modal')) closeConfirm(false); });
   window.addEventListener('keydown', (e) => {
     if (e.key === 'Escape' && !$('connect-modal').hidden) { closeConnectModal(); return; }
+    if (e.key === 'Escape' && !$('ticket-modal').hidden) { closeTicketModal(); return; }
+    if (e.key === 'Escape' && !$('integrations-modal').hidden) { closeIntegrations(); return; }
     if (e.key === 'Escape' && !$('troubleshoot-modal').hidden) { closeTroubleshoot(); return; }
     if ($('confirm-modal').hidden) return;
     if (e.key === 'Escape') closeConfirm(false);
@@ -1654,6 +2037,7 @@
   renderDevices();
   render();
   connect();
+  refreshClickup();
 })();
 </script>
 </body>
