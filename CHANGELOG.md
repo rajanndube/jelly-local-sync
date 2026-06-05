@@ -6,6 +6,31 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-06-05
+
+### Added
+- **ClickUp integration.** Connect by pasting a personal API token (`pk_…`, the
+  breezy path — no app to register) or via OAuth (behind "Advanced"). Create a
+  ClickUp **Task or Bug** from any annotation — comment as the description,
+  severity mapped to priority, screenshot attached — plus a **"Create multiple
+  tickets"** bulk flow that tickets every selected annotation into one
+  space/list. The ClickUp logo appears throughout, and the footer button shows
+  the connected workspace. Self-contained in `clickup.mjs`; setup documented in
+  `SETUP_CLICKUP.md`.
+- **Session persistence.** A browser refresh now re-joins the same session
+  instead of silently starting empty, and buffered screenshots survive the
+  reload too (the SSE replay re-advertises them). A confirm-gated **New session**
+  button (`POST /session/new`) starts a fresh capture; a server restart also
+  resets.
+
+### Changed
+- Split the single-file `public/index.html` into `index.html` + `app.css` +
+  `app.js` (still zero-build; the page reads server-templated globals from a
+  `window.JELLY` bootstrap, and `app.css`/`app.js` are served `no-store`).
+- Annotation-card hierarchy: screenshot **Copy/Open** moved onto the image as a
+  hover overlay, card button sizes unified, and **Troubleshoot + New session**
+  demoted to a quieter tertiary footer row beneath the primary connect buttons.
+
 ## [0.3.0] - 2026-06-05
 
 ### Added
@@ -95,7 +120,8 @@ Initial public release.
 - Per-device attribution by client IP, multi-device support over one URL.
 - Request body caps (256 KB JSON, 25 MB image) returning `413` on overflow.
 
-[Unreleased]: https://github.com/rajanndube/jelly-local-sync/compare/v0.3.0...HEAD
+[Unreleased]: https://github.com/rajanndube/jelly-local-sync/compare/v0.4.0...HEAD
+[0.4.0]: https://github.com/rajanndube/jelly-local-sync/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/rajanndube/jelly-local-sync/compare/v0.2.1...v0.3.0
 [0.2.1]: https://github.com/rajanndube/jelly-local-sync/compare/v0.2.0...v0.2.1
 [0.2.0]: https://github.com/rajanndube/jelly-local-sync/compare/v0.1.1...v0.2.0
