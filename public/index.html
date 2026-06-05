@@ -123,7 +123,7 @@
   .connect-btn[hidden] { display: none; }
   .connect-btn svg { opacity: 0.7; }
 
-  /* Sticky rail footer — pinned bottom-left, holds Connect + Troubleshoot so
+  /* Sticky rail footer, pinned bottom-left, holds Connect + Troubleshoot so
      they stay reachable while the device list scrolls. */
   .rail-footer {
     margin-top: auto; position: sticky; bottom: -24px; z-index: 2;
@@ -141,7 +141,7 @@
     .troubleshoot-btn:hover { color: var(--text); background: var(--surface-hi); border-color: var(--border-hi); }
   }
 
-  /* ── Connect panel — shared by the empty-state hero and the modal ───── */
+  /* ── Connect panel, shared by the empty-state hero and the modal ───── */
   .field-label { font-size: 11px; color: var(--text-mute); margin: 0 0 6px; }
   .url-box { display: flex; gap: 6px; align-items: stretch; }
   .url-input {
@@ -152,8 +152,7 @@
   .url-input.lan { color: var(--text-dim); }
 
   /* The connect panel is a two-pane shell: the always-visible "scan / paste"
-     column, and a setup-help column that expands to the RIGHT on demand —
-     rather than dumping a tall stack of tabs and steps downward. */
+     column, and a setup-help column that expands to the RIGHT on demand,     rather than dumping a tall stack of tabs and steps downward. */
   .connect-shell { display: flex; align-items: flex-start; }
   .cp { width: 340px; flex-shrink: 0; display: flex; flex-direction: column; align-items: center; text-align: center; }
 
@@ -224,7 +223,7 @@
   .cp-fields { width: 100%; max-width: 380px; text-align: left; }
   .cp-fields .lan-row { margin-top: 12px; }
 
-  /* Address picker — prominent when >1 interface was detected, so the user can
+  /* Address picker, prominent when >1 interface was detected, so the user can
      pick the network their phone is actually on instead of the auto-guess. */
   .addr-picker { width: 100%; max-width: 380px; margin: 2px 0 20px; padding: 13px 14px 12px;
     background: var(--surface-2); border: 1px solid var(--accent); border-radius: 11px;
@@ -336,7 +335,7 @@
   .ann-img.placeholder { aspect-ratio: 16 / 9; display: flex; align-items: center; justify-content: center; color: var(--text-mute); font-size: 12px; background: var(--surface-2); }
   .ann-body { padding: 15px 17px; }
 
-  /* Device tag — the "who sent this" line at the top of every card. */
+  /* Device tag, the "who sent this" line at the top of every card. */
   .ann-device { display: inline-flex; align-items: center; gap: 8px; margin-bottom: 11px; max-width: 100%; }
   .ann-device .chip-dot { width: 9px; height: 9px; border-radius: 3px; flex-shrink: 0; }
   .ann-device .name { font-size: 12px; font-weight: 600; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -429,7 +428,7 @@
   .ts-pr .pick { font-size: 11px; padding: 3px 8px; }
   @media (max-width: 480px) { .ts-probe { flex-direction: column; align-items: center; text-align: center; } }
 
-  /* On narrow screens there's no room to expand sideways — stack the setup
+  /* On narrow screens there's no room to expand sideways, stack the setup
      pane below the scan/paste column instead. */
   @media (max-width: 760px) {
     .connect-shell { flex-direction: column; align-items: center; }
@@ -542,7 +541,7 @@
   const BOUND_HOST = '__HOST__';   // the host the server bound to (HOST env)
   const LAN_IP = '__LAN_IP__';
   // Ranked candidate LAN addresses, best first (server-injected JS literal).
-  // Each is { ip, iface } — the interface name lets the address picker label
+  // Each is { ip, iface }, the interface name lets the address picker label
   // each option so the user can tell Wi-Fi from a VPN/Docker adapter.
   const LAN_IPS = __LAN_IPS__;
   const ORIGIN = location.origin;
@@ -596,10 +595,10 @@
       document.body.removeChild(ta);
     }
     if (ok) flashCopied(btn);
-    else toast('Copy failed — try ⌘/Ctrl+C');
+    else toast('Copy failed, try ⌘/Ctrl+C');
   }
 
-  // Re-encode any image Blob (often image/webp) to PNG — clipboard.write only
+  // Re-encode any image Blob (often image/webp) to PNG, clipboard.write only
   // accepts image/png in Chrome and Safari.
   async function blobToPng(blob) {
     if (blob.type === 'image/png') return blob;
@@ -625,7 +624,7 @@
 
   async function copyImage(imgUrl, btn) {
     if (!navigator.clipboard?.write || typeof ClipboardItem === 'undefined') {
-      toast('Image clipboard not supported — opening for manual copy');
+      toast('Image clipboard not supported, opening for manual copy');
       try { window.open(imgUrl, '_blank'); } catch {}
       return;
     }
@@ -641,7 +640,7 @@
         await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
         flashCopied(btn);
       } catch {
-        toast('Image clipboard blocked — opening for manual copy');
+        toast('Image clipboard blocked, opening for manual copy');
         try { window.open(imgUrl, '_blank'); } catch {}
       }
     }
@@ -653,9 +652,9 @@
   // behind a disclosure. The same panel is the empty-state hero (main column,
   // before any device pairs) and the "Connect another device" modal afterwards.
   //
-  // The QR encodes the LAN URL — the only URL a phone camera can resolve
+  // The QR encodes the LAN URL, the only URL a phone camera can resolve
   // (localhost would mean "the phone itself"). Vendored qrcode-generator (MIT).
-  // Generic QR rasteriser — encodes `text` onto `canvas`. Used for the main
+  // Generic QR rasteriser, encodes `text` onto `canvas`. Used for the main
   // connect QR (lanEndpoint) and the troubleshooter's diagnostic QR.
   function renderQR(canvas, text, scale = 5) {
     if (!text || typeof qrcode === 'undefined') return false;
@@ -682,7 +681,7 @@
   }
   function drawQR(canvas) { return renderQR(canvas, lanEndpoint, 5); }
 
-  // Switch the advertised LAN address everywhere at once — every connect panel
+  // Switch the advertised LAN address everywhere at once, every connect panel
   // currently in the DOM (hero + modal), its QR, LAN-URL field, and the active
   // address-picker chip. Called by the picker and by the troubleshooter when a
   // phone reports which address it can actually reach.
@@ -707,7 +706,7 @@
             <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 6.5a8 8 0 0 1 12 0"/><path d="M4.3 9a5 5 0 0 1 7.4 0"/><path d="M6.5 11.4a2 2 0 0 1 3 0"/><circle cx="8" cy="13.5" r="0.5" fill="currentColor"/></svg>
             Phone won't connect? Pick its network
           </p>
-          <p class="addr-picker-sub">Multiple networks detected. The QR points at the highlighted one — if your phone can't open it, choose the address on the same Wi-Fi as the phone.</p>
+          <p class="addr-picker-sub">Multiple networks detected. The QR points at the highlighted one, if your phone can't open it, choose the address on the same Wi-Fi as the phone.</p>
           <div class="addr-list"></div>
         </div>
         <div class="cp-or">or paste the URL</div>
@@ -718,7 +717,7 @@
             <button class="primary cp-copy" type="button">Copy</button>
           </div>
           <div class="lan-row cp-lanrow" hidden>
-            <p class="field-label">LAN URL — for iOS / other Wi-Fi devices</p>
+            <p class="field-label">LAN URL, for iOS / other Wi-Fi devices</p>
             <div class="url-box">
               <input class="url-input lan cp-lan" readonly />
               <button class="cp-copy-lan" type="button">Copy</button>
@@ -737,7 +736,7 @@
             <svg class="chev" width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 4l4 4-4 4"/></svg>
           </button>
         </div>
-        <p class="refresh-note">Refresh this page to start a fresh, isolated session — the URL rotates and the old one stops accepting writes.</p>
+        <p class="refresh-note">Refresh this page to start a fresh, isolated session, the URL rotates and the old one stops accepting writes.</p>
       </div>
       <div class="cp-setup" aria-hidden="true">
         <div class="cp-setup-inner">
@@ -756,7 +755,7 @@
                 The phone's <code>localhost:${PORT}</code> now tunnels over USB to this server.</span></li>
               <li><span class="num">3</span><span>Paste the <b>Endpoint URL</b> into the Jelly toolbar and toggle <b>Sync</b> on.</span></li>
             </ol>
-            <div class="note"><b>Note:</b> several USB devices tunnelling to one port look like a single client here. For multi-device QA, pair phones over Wi-Fi — each gets its own row.</div>
+            <div class="note"><b>Note:</b> several USB devices tunnelling to one port look like a single client here. For multi-device QA, pair phones over Wi-Fi, each gets its own row.</div>
           </div>
           <div class="tab-panel" data-panel="ios">
             <ol class="setup-steps">
@@ -770,7 +769,7 @@
             <ol class="setup-steps">
               <li><span class="num">1</span><span>Open the page hosting the Jelly browser toolbar.</span></li>
               <li><span class="num">2</span><span>Paste the <b>Endpoint URL</b> into the toolbar and toggle <b>Sync</b> on.</span></li>
-              <li><span class="num">3</span><span>Same machine, same origin — no tunnelling needed.</span></li>
+              <li><span class="num">3</span><span>Same machine, same origin, no tunnelling needed.</span></li>
             </ol>
           </div>
         </div>
@@ -779,7 +778,7 @@
           <details class="trouble-q">
             <summary>Phone scans the QR but nothing loads<svg class="tq-chev" width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 4l4 4-4 4"/></svg></summary>
             <div class="trouble-body">
-              <p>The phone and this laptop must be on the <b>same Wi-Fi network</b>. The QR encodes a LAN address — if that address isn't reachable from the phone, scanning opens a dead link.</p>
+              <p>The phone and this laptop must be on the <b>same Wi-Fi network</b>. The QR encodes a LAN address, if that address isn't reachable from the phone, scanning opens a dead link.</p>
               <p>If more than one network was detected, use the <b>address picker</b> on this panel and choose the address that matches your phone's Wi-Fi IP (on the phone: <b>Settings → Wi-Fi → ⓘ</b>). VPN and Docker adapters get listed too, but a phone can't reach those.</p>
             </div>
           </details>
@@ -800,14 +799,14 @@
           <details class="trouble-q">
             <summary>iOS won't connect<svg class="tq-chev" width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 4l4 4-4 4"/></svg></summary>
             <div class="trouble-body">
-              <p>iOS is <b>Wi-Fi only</b> — there's no cable-mode pairing. Grant <b>Local Network</b> permission when iOS prompts.</p>
+              <p>iOS is <b>Wi-Fi only</b>, there's no cable-mode pairing. Grant <b>Local Network</b> permission when iOS prompts.</p>
               <p>MDM-managed devices that block local-network traffic can't pair, and there is no workaround on iOS.</p>
             </div>
           </details>
           <details class="trouble-q">
             <summary>Connected, but no annotations appear<svg class="tq-chev" width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 4l4 4-4 4"/></svg></summary>
             <div class="trouble-body">
-              <p>Confirm <b>Sync</b> is toggled on in the toolbar and that you pasted <b>this page's exact URL</b>. Refreshing the page rotates the URL — re-pair the device after any refresh.</p>
+              <p>Confirm <b>Sync</b> is toggled on in the toolbar and that you pasted <b>this page's exact URL</b>. Refreshing the page rotates the URL, re-pair the device after any refresh.</p>
             </div>
           </details>
           <details class="trouble-q">
@@ -819,7 +818,7 @@
           <details class="trouble-q">
             <summary>All devices show as one row<svg class="tq-chev" width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 4l4 4-4 4"/></svg></summary>
             <div class="trouble-body">
-              <p>Those devices share one IP — usually several <code>adb reverse</code> tunnels to the same port, or devices behind NAT. Pair over Wi-Fi so each device gets its own address and its own row.</p>
+              <p>Those devices share one IP, usually several <code>adb reverse</code> tunnels to the same port, or devices behind NAT. Pair over Wi-Fi so each device gets its own address and its own row.</p>
             </div>
           </details>
         </div>
@@ -837,7 +836,7 @@
     const hasQR = drawQR(shell.querySelector('.cp-qr canvas'));
     if (hasQR) {
       shell.querySelector('.cp-title').textContent = 'Scan to connect';
-      shell.querySelector('.cp-sub').textContent = "Point your phone's camera at the code — it opens the Jelly endpoint automatically.";
+      shell.querySelector('.cp-sub').textContent = "Point your phone's camera at the code, it opens the Jelly endpoint automatically.";
     } else {
       // No LAN IP: greyed QR placeholder keeps the layout, paste becomes primary.
       qrBox.classList.add('disabled');
@@ -858,8 +857,8 @@
 
     // When more than one interface was detected, the auto-pick may not be the
     // network the phone is on (VPN / Docker / VM adapters). Show an explicit,
-    // prominent picker — one selectable row per address, labelled with its
-    // interface — so the user can switch to the one their phone can reach.
+    // prominent picker, one selectable row per address, labelled with its
+    // interface, so the user can switch to the one their phone can reach.
     // Selecting re-encodes the QR and updates the LAN URL field live.
     const picker = shell.querySelector('.addr-picker');
     if (hasQR && LAN_IPS.length > 1) {
@@ -914,7 +913,7 @@
 
   // Main column shows the connect hero until a device pairs, then the feed.
   // (Devices are never removed within a session, so the hero only ever shows
-  // at the start — build its QR once.)
+  // at the start, build its QR once.)
   function syncMainView() {
     const hasDevices = devices.size > 0;
     $('connect-hero').hidden = hasDevices;
@@ -945,7 +944,7 @@
   // A two-sided connection diagnostic. The laptop self-checks what it can see
   // (LAN address, server binding, VPN noise, SSE, self-reachability); then a
   // QR points the phone at /diag, which probes every candidate address and
-  // reports back over SSE which ones it could reach — the definitive signal the
+  // reports back over SSE which ones it could reach, the definitive signal the
   // laptop can't observe on its own. Whatever the phone reaches is auto-selected
   // as the advertised address.
   let onDiagReport = null;   // set while the troubleshooter waits for a phone report
@@ -956,7 +955,7 @@
   const TS_HTML = `
     <div class="ts-root">
       <div class="ts-head"><h3 class="modal-title">Troubleshoot connection</h3></div>
-      <p class="ts-intro">Find why a device can't connect. We check this laptop's setup, then your phone tests whether it can actually reach the laptop — no app needed.</p>
+      <p class="ts-intro">Find why a device can't connect. We check this laptop's setup, then your phone tests whether it can actually reach the laptop, no app needed.</p>
       <button class="primary ts-run" type="button">
         <svg width="13" height="13" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M4 3.2v9.6a.5.5 0 0 0 .77.42l7.2-4.8a.5.5 0 0 0 0-.84l-7.2-4.8A.5.5 0 0 0 4 3.2z"/></svg>
         <span class="ts-run-label">Run checks</span>
@@ -1008,14 +1007,14 @@
 
     const allIfaces = (BOUND_HOST === '0.0.0.0' || BOUND_HOST === '::' || BOUND_HOST === '');
     if (allIfaces) {
-      tsAddCheck(container, { status: 'pass', label: 'Listening on all interfaces', detail: `Bound to ${BOUND_HOST || '0.0.0.0'} — it accepts LAN connections.` });
+      tsAddCheck(container, { status: 'pass', label: 'Listening on all interfaces', detail: `Bound to ${BOUND_HOST || '0.0.0.0'}, it accepts LAN connections.` });
     } else if (BOUND_HOST === '127.0.0.1' || BOUND_HOST === 'localhost' || BOUND_HOST === '::1') {
       tsAddCheck(container, { status: 'fail', label: 'Server bound to localhost',
         detail: `Started with HOST=${BOUND_HOST}, so it only accepts connections from this machine. No phone can reach it.`,
-        fix: '<p>Restart without the localhost bind — <code>node server.mjs</code> defaults to <code>HOST=0.0.0.0</code>.</p>' });
+        fix: '<p>Restart without the localhost bind, <code>node server.mjs</code> defaults to <code>HOST=0.0.0.0</code>.</p>' });
     } else {
       tsAddCheck(container, { status: 'warn', label: 'Bound to a single interface',
-        detail: `Started with HOST=${BOUND_HOST}. Only that interface accepts connections — make sure it's the one your phone is on.` });
+        detail: `Started with HOST=${BOUND_HOST}. Only that interface accepts connections, make sure it's the one your phone is on.` });
     }
 
     const virtual = LAN_IPS.filter((c) => VIRTUAL_IFACE.test(c.iface));
@@ -1023,7 +1022,7 @@
       const onlyVirtual = virtual.length === LAN_IPS.length;
       tsAddCheck(container, { status: onlyVirtual ? 'warn' : 'info',
         label: onlyVirtual ? 'Only VPN/virtual networks found' : 'VPN/virtual interfaces present',
-        detail: virtual.map((v) => `${v.ip} (${v.iface})`).join(', ') + " — phones can't route to these.",
+        detail: virtual.map((v) => `${v.ip} (${v.iface})`).join(', ') + ", phones can't route to these.",
         fix: onlyVirtual
           ? '<p>The only addresses found are VPN/virtual adapters. Disconnect the VPN or connect the laptop to normal Wi-Fi, then refresh.</p>'
           : "<p>These appear in the address picker but won't work for a phone. Pick a <b>192.168.x</b> or <b>10.x</b> address matching your phone's Wi-Fi.</p>" });
@@ -1035,7 +1034,7 @@
           fix: '<p>The server may have restarted. Refresh this page to start a fresh session.</p>' });
 
     if (devices.size) {
-      tsAddCheck(container, { status: 'pass', label: `${devices.size} device${devices.size > 1 ? 's' : ''} already connected`, detail: 'At least one device has reached the server — pairing works.' });
+      tsAddCheck(container, { status: 'pass', label: `${devices.size} device${devices.size > 1 ? 's' : ''} already connected`, detail: 'At least one device has reached the server, pairing works.' });
     } else {
       tsAddCheck(container, { status: 'info', label: 'No device has connected yet', detail: 'Use the phone test below to check whether a device can reach this laptop.' });
     }
@@ -1043,10 +1042,10 @@
     if (LAN_IPS.length) {
       const row = tsAddCheck(container, { status: 'pending', label: 'Testing reachability from this browser…' });
       tsPing(LAN_IPS[0].ip).then((ok) => {
-        if (ok) tsUpdateCheck(row, { status: 'pass', label: 'Server reachable on its LAN address', detail: `This browser reached ${LAN_IPS[0].ip}:${PORT} — the server is listening on that interface.` });
+        if (ok) tsUpdateCheck(row, { status: 'pass', label: 'Server reachable on its LAN address', detail: `This browser reached ${LAN_IPS[0].ip}:${PORT}, the server is listening on that interface.` });
         else tsUpdateCheck(row, { status: 'fail', label: "Can't reach the server on its LAN address",
           detail: `This browser couldn't reach ${LAN_IPS[0].ip}:${PORT}. If even this machine can't, no phone can.`,
-          fix: '<p>Likely a <b>firewall</b> blocking the port, or the server is bound to localhost. macOS: allow incoming for <code>node</code> in <b>System Settings → Network → Firewall</b>. Windows: approve <b>Node.js</b> on <b>Private networks</b> in the Defender prompt.</p>' });
+          fix: `<p>Likely a <b>firewall</b> blocking the port (or the server bound to localhost). If you control it, macOS: allow incoming for <code>node</code> in <b>System Settings → Network → Firewall</b>; Windows: approve <b>Node.js</b> on <b>Private networks</b>.</p><p><b>Firewall locked by an MDM?</b> You can't open it, but <b>Android over USB routes around it</b>, the tunnel sits below the IP layer the firewall inspects. Run <code>adb reverse tcp:${PORT} tcp:${PORT}</code> and paste the <b>Endpoint URL</b> (the localhost one, not the LAN URL). iOS has no equivalent, it needs an IT/MDM exception or an unmanaged laptop on the same Wi-Fi.</p>` });
       });
     }
   }
@@ -1083,9 +1082,9 @@
     const note = document.createElement('div');
     note.className = 'ts-fix';
     if (reachable.length) {
-      note.innerHTML = `<p><b>${phone} can reach this laptop on ${reachable[0].ip}.</b> The connect QR now uses that address — re-scan it, or paste the LAN URL into the Jelly toolbar.</p>`;
+      note.innerHTML = `<p><b>${phone} can reach this laptop on ${reachable[0].ip}.</b> The connect QR now uses that address, re-scan it, or paste the LAN URL into the Jelly toolbar.</p>`;
     } else {
-      note.innerHTML = `<p><b>${phone} loaded the test but reached no address back.</b> Unusual — usually a firewall or isolation rule that allowed the page but blocks the API port. Check the laptop firewall, or use Android over USB.</p>`;
+      note.innerHTML = `<p><b>${phone} loaded the test but reached no address back.</b> Unusual, usually a firewall or isolation rule that allowed the page but blocks the API port. Check the laptop firewall, or use Android over USB.</p>`;
     }
     resultsEl.appendChild(note);
   }
@@ -1114,7 +1113,7 @@
       resultsEl.appendChild(el);
       const fix = document.createElement('div');
       fix.className = 'ts-fix';
-      fix.innerHTML = `<p>The phone hasn't reported in. If it can't even load the test page, it can't reach this laptop at all — that points to <b>different Wi-Fi networks</b>, <b>client isolation</b> (guest/corporate Wi-Fi), a <b>firewall</b>, or an <b>MDM</b> policy blocking local network.</p><p>Confirm the phone is on the same Wi-Fi and scan again. On Android, bypass Wi-Fi with USB: <code>adb reverse tcp:${PORT} tcp:${PORT}</code>.</p>`;
+      fix.innerHTML = `<p>The phone hasn't reported in. If it can't even load the test page, it can't reach this laptop at all, that points to <b>different Wi-Fi networks</b>, <b>client isolation</b> (guest/corporate Wi-Fi), a <b>firewall</b>, or an <b>MDM</b> policy blocking local network.</p><p>Confirm the phone is on the same Wi-Fi and scan again. On Android, bypass Wi-Fi with USB: <code>adb reverse tcp:${PORT} tcp:${PORT}</code>.</p>`;
       resultsEl.appendChild(fix);
     }, 35000);
   }
@@ -1394,7 +1393,7 @@
     feed.innerHTML = '';
     const now = new Set();
     for (const { id, a, index } of shown) {
-      // Animate only genuinely new cards — re-rendering on filter/update should
+      // Animate only genuinely new cards, re-rendering on filter/update should
       // not replay the whole list's entrance.
       feed.appendChild(renderCard(a, index, !renderedIds.has(id)));
       now.add(id);
@@ -1425,7 +1424,7 @@
     const body = document.createElement('div');
     body.className = 'ann-body';
 
-    // Device tag — which device sent this annotation.
+    // Device tag, which device sent this annotation.
     const dev = devices.get(a._deviceKey) || a._device;
     if (a._deviceKey || dev) {
       const tag = document.createElement('div');

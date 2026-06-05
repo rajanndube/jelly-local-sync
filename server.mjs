@@ -1,20 +1,20 @@
 #!/usr/bin/env node
 //
-// Jelly Local Sync — zero-dep local server + browser viewer.
+// Jelly Local Sync, zero-dep local server + browser viewer.
 //
 // Browse to http://localhost:7777, copy the per-session URL the page shows,
 // paste it into the Jelly SDK's endpoint setting on phone (or web). Annotations
 // POSTed by the SDK stream into the page over SSE. Nothing leaves the machine.
 //
 // Each GET / issues a fresh, unguessable token. The token is also the API
-// namespace prefix (/r/<token>/...) — only clients that know the token can
+// namespace prefix (/r/<token>/...), only clients that know the token can
 // post or read. Refresh = new token. Old room remains in memory until the
 // process exits but is unreachable without the URL.
 //
 // The HTTP shape under /r/<token>/... mirrors the existing Jelly /sessions
 // contract (see jelly/.../sync/JellyApi.kt) so the SDK works unmodified.
 // Image upload (POST /annotations/:id/image, binary body) is the one
-// extension — the SDK uploads the baked PNG so the browser can render it.
+// extension, the SDK uploads the baked PNG so the browser can render it.
 
 import http from 'node:http';
 import { randomBytes } from 'node:crypto';
@@ -29,20 +29,20 @@ const HOST = process.env.HOST ?? '0.0.0.0';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 // Per-token state. Each "room" is one browser tab's stream.
-//   sessions:   Map<sessionId, Session>          — created lazily by SDK
-//   annotations: Annotation[]                    — flat list, newest last
-//   images:     Map<annotationId, {ct, bytes}>   — baked PNGs from SDK
-//   sse:        Set<ServerResponse>              — live page listeners
-//   devices:    Map<deviceKey, DeviceInfo>       — every SDK that has hello'd
+//   sessions:   Map<sessionId, Session>          created lazily by SDK
+//   annotations: Annotation[]                    flat list, newest last
+//   images:     Map<annotationId, {ct, bytes}>   baked PNGs from SDK
+//   sse:        Set<ServerResponse>              live page listeners
+//   devices:    Map<deviceKey, DeviceInfo>       every SDK that has hello'd
 //
 // Multiple devices can point at the same URL/token (paste it into several
 // phones), so a room tracks a SET of devices, not one. Devices are keyed by
-// client IP — the only stable per-device discriminator on the wire, since the
+// client IP, the only stable per-device discriminator on the wire, since the
 // SDK's /hello body carries no device id. The same key is stamped onto every
 // annotation (by the IP its POST arrived on), which is how the page attributes
 // an annotation to the device that sent it. Limitation: multiple devices
 // tunnelling over `adb reverse` to one host port all share 127.0.0.1 and can't
-// be told apart — the multi-device case that works cleanly is several phones on
+// be told apart, the multi-device case that works cleanly is several phones on
 // Wi-Fi, each with its own LAN IP.
 const rooms = new Map();
 
@@ -66,7 +66,7 @@ function getRoom(token, create = false) {
 }
 
 // Stable per-device key for this room. The SDK sends no device id, so we use
-// the client IP — distinct per phone on a LAN. Normalise the IPv4-mapped IPv6
+// the client IP, distinct per phone on a LAN. Normalise the IPv4-mapped IPv6
 // form (::ffff:192.168.1.5) and loopback so the same device hashes the same way
 // whether it reaches us over v4 or v6.
 function clientKey(req) {
@@ -91,7 +91,7 @@ function touchDevice(room, key, body, now) {
     appName: body?.appName ?? existing?.appName ?? null,
     sdkVersion: body?.sdkVersion ?? existing?.sdkVersion ?? null,
     firstSeenMs: existing?.firstSeenMs ?? now,
-    // null marks "seen via an annotation but never heartbeat" — the page shows
+    // null marks "seen via an annotation but never heartbeat", the page shows
     // it without a live pulse. A real /hello passes the body and stamps a time.
     lastHelloMs: body ? now : (existing?.lastHelloMs ?? null),
   };
@@ -103,7 +103,7 @@ function touchDevice(room, key, body, now) {
 // address the phone can actually reach. The naive "first non-internal IPv4"
 // loses on machines where a VPN tunnel (utun/tun/ppp/wg), a Docker bridge
 // (172.17.x), or a VM host-only adapter (vboxnet/vmnet) is enumerated *before*
-// the real Wi-Fi/Ethernet interface — the QR then encodes a dead address and
+// the real Wi-Fi/Ethernet interface, the QR then encodes a dead address and
 // scanning silently fails. We score every candidate by interface name + address
 // range and return them best-first; the page receives the full ranked list so
 // the user can switch if the auto-pick is still wrong on their network.
@@ -114,7 +114,7 @@ function scoreCandidate(name, address) {
   let score = 0;
   if (PHYSICAL_IFACE_RE.test(name)) score += 100;
   if (VIRTUAL_IFACE_RE.test(name)) score -= 200;
-  // Address range — phones share one of these private ranges with the laptop,
+  // Address range, phones share one of these private ranges with the laptop,
   // in rough order of how commonly a phone/laptop network uses them.
   if (address.startsWith('192.168.')) score += 50;
   else if (/^10\./.test(address)) score += 40;
@@ -122,7 +122,7 @@ function scoreCandidate(name, address) {
     score += 30;
     if (address.startsWith('172.17.')) score -= 60; // Docker's default bridge subnet
   } else if (address.startsWith('169.254.')) score -= 100; // link-local, unroutable
-  else score -= 50; // public-ish / unexpected — almost never the shared LAN
+  else score -= 50; // public-ish / unexpected, almost never the shared LAN
   return score;
 }
 
@@ -165,15 +165,14 @@ function send(res, status, body, headers = {}) {
 
 // Size caps: prevent a buggy/malicious client from OOMing the server by
 // streaming an unbounded body. JSON bodies (annotation payloads, /hello info)
-// are tiny — 256 KB is huge headroom. Images cap at 25 MB which covers a 4K
+// are tiny, 256 KB is huge headroom. Images cap at 25 MB which covers a 4K
 // baked WebP comfortably.
 const JSON_BODY_CAP = 256 * 1024;
 const IMAGE_BODY_CAP = 25 * 1024 * 1024;
 
 // Reads the request body up to `cap` bytes. Throws PayloadTooLargeError if the
 // stream exceeds the cap. We *pause* the stream rather than destroying it so
-// the response socket (shared with the request socket) is still writable —
-// the global handler needs to send a 413 back, then `res.end()` closes
+// the response socket (shared with the request socket) is still writable,// the global handler needs to send a 413 back, then `res.end()` closes
 // cleanly. Throwing without pausing would leak memory while we keep
 // accumulating chunks for nothing.
 class PayloadTooLargeError extends Error {
@@ -226,7 +225,7 @@ const IMAGE_MIME_WHITELIST = new Set(['image/png', 'image/webp', 'image/jpeg']);
 
 // Annotation IDs are echoed into SSE event payloads. A malicious ID containing
 // `\n` could split the SSE frame and inject a fake `event:` line. Constrain
-// to a conservative shape — UUIDs, hex strings, and short slugs all fit.
+// to a conservative shape, UUIDs, hex strings, and short slugs all fit.
 const ANNOTATION_ID_RE = /^[A-Za-z0-9_-]{1,128}$/;
 
 const server = http.createServer(async (req, res) => {
@@ -236,7 +235,7 @@ const server = http.createServer(async (req, res) => {
 
     if (req.method === 'OPTIONS') return send(res, 204, '');
 
-    // Index — fresh token every visit, served as a static page that knows
+    // Index, fresh token every visit, served as a static page that knows
     // its own token. Browser refresh re-fetches and rotates.
     if (m === '/' && req.method === 'GET') {
       const token = newToken();
@@ -249,7 +248,7 @@ const server = http.createServer(async (req, res) => {
         .replaceAll('__PORT__', String(PORT))
         .replaceAll('__HOST__', HOST)
         .replaceAll('__LAN_IP__', lan ?? '')
-        // JSON array literal injected into a JS context — ranked candidates,
+        // JSON array literal injected into a JS context, ranked candidates,
         // best first, each `{ip, iface}`. Lets the page show an explicit
         // address picker (with interface names) when the auto-pick can't be
         // reached by the phone.
@@ -274,7 +273,7 @@ const server = http.createServer(async (req, res) => {
 
     // Liveness probe used by the phone-side troubleshooter (public/diag.html)
     // to test whether a given LAN address is reachable. Token-agnostic and
-    // tiny — the phone fetches http://<candidate-ip>:<port>/ping for each
+    // tiny, the phone fetches http://<candidate-ip>:<port>/ping for each
     // detected interface; CORS (set by send()) lets it probe cross-origin.
     if (m === '/ping' && req.method === 'GET') {
       return send(res, 200, { ok: true, serverNow: Date.now() });
@@ -283,7 +282,7 @@ const server = http.createServer(async (req, res) => {
     // Phone-side diagnostic page. Opened by scanning the QR the dashboard's
     // troubleshooter shows. Templated with the token (so it can report back),
     // the port, and the ranked candidate addresses to probe. Whichever address
-    // the phone loaded this page from is, by definition, reachable — the page
+    // the phone loaded this page from is, by definition, reachable, the page
     // then probes the rest and POSTs results to /r/:token/diag.
     if (m === '/diag' && req.method === 'GET') {
       const token = (url.searchParams.get('t') ?? '').replace(/[^a-f0-9]/g, '');
@@ -308,7 +307,7 @@ const server = http.createServer(async (req, res) => {
     const rest = pm[2] ?? '/';
     const room = getRoom(token, true);
 
-    // SSE — page subscribes here, replays existing annotations on connect.
+    // SSE, page subscribes here, replays existing annotations on connect.
     if (rest === '/events' && req.method === 'GET') {
       res.writeHead(200, {
         ...CORS,
@@ -319,7 +318,7 @@ const server = http.createServer(async (req, res) => {
       });
       res.write(`retry: 2000\n\n`);
       // Include serverNow so the page can compute device-liveness with no clock-skew
-      // assumption — it diffs lastHelloMs against serverNow, then anchors to its own Date.now().
+      // assumption, it diffs lastHelloMs against serverNow, then anchors to its own Date.now().
       res.write(`event: hello\ndata: ${JSON.stringify({
         token,
         count: room.annotations.length,
@@ -340,7 +339,7 @@ const server = http.createServer(async (req, res) => {
       return;
     }
 
-    // /hello — SDK identifies itself and heartbeats. Body shape:
+    // /hello, SDK identifies itself and heartbeats. Body shape:
     //   { platform, model, manufacturer, osVersion, appName, sdkVersion }
     // Keyed by client IP so several phones pointed at the same URL each register
     // as a distinct device. Each call refreshes that device's lastHelloMs so the
@@ -355,9 +354,9 @@ const server = http.createServer(async (req, res) => {
 
     // Diagnostic report relay. The phone-side /diag page POSTs which candidate
     // addresses it could reach; we relay it to the dashboard over SSE (the only
-    // path between the two — they're different clients). Body:
+    // path between the two, they're different clients). Body:
     //   { loadedFrom, results: [{ip, iface, ok, ms}], ua }
-    // clientIp is the source IP the report arrived on — the address the phone
+    // clientIp is the source IP the report arrived on, the address the phone
     // actually used to reach us, which the dashboard can cross-check.
     if (rest === '/diag' && req.method === 'POST') {
       const report = (await readJson(req)) ?? {};
@@ -365,7 +364,7 @@ const server = http.createServer(async (req, res) => {
       return send(res, 200, { ok: true });
     }
 
-    // /sessions — minimal MCP-shape so the SDK works unmodified.
+    // /sessions, minimal MCP-shape so the SDK works unmodified.
     if (rest === '/sessions' && req.method === 'GET') {
       return send(res, 200, [...room.sessions.values()]);
     }
@@ -373,7 +372,7 @@ const server = http.createServer(async (req, res) => {
       const body = (await readJson(req)) ?? {};
       const id = randomBytes(6).toString('hex');
       // `status` is required by the Android SDK's strict kotlinx Session
-      // decode — omit it and createSession() throws MissingFieldException,
+      // decode, omit it and createSession() throws MissingFieldException,
       // which runCatching swallows and surfaces as "couldn't reach endpoint".
       // Match the cross-client contract: active/approved/closed.
       const session = {
@@ -457,7 +456,7 @@ const server = http.createServer(async (req, res) => {
       return send(res, 200, { ok: true });
     }
 
-    // Bulk clear — fired by the page's "Delete all" button. Single SSE event so
+    // Bulk clear, fired by the page's "Delete all" button. Single SSE event so
     // listeners don't get a flood of per-id 'delete' events on a big purge.
     if (rest === '/annotations' && req.method === 'DELETE') {
       const n = room.annotations.length;
@@ -502,10 +501,9 @@ const server = http.createServer(async (req, res) => {
     return send(res, 404, { error: 'not found' });
   } catch (err) {
     // PayloadTooLargeError is the one case where the request was at fault
-    // (client streaming an oversized body) — surface 413 so the SDK can log
+    // (client streaming an oversized body), surface 413 so the SDK can log
     // it clearly rather than retrying a doomed upload. Everything else maps
-    // to a generic 500 with the actual exception logged server-side only —
-    // raw err.message can include internal paths/library noise we don't want
+    // to a generic 500 with the actual exception logged server-side only,    // raw err.message can include internal paths/library noise we don't want
     // any client (or random web page) to see.
     if (err instanceof PayloadTooLargeError) {
       console.warn('[jelly-local-sync]', err.message);
@@ -518,6 +516,26 @@ const server = http.createServer(async (req, res) => {
   }
 });
 
+// A busy port (another instance still running, or one suspended with Ctrl-Z and
+// still holding the socket) would otherwise surface as an unhandled 'error'
+// event and dump a stack trace. Translate the common cases into a one-line hint
+// and exit cleanly; rethrow anything unexpected.
+server.on('error', (err) => {
+  if (err.code === 'EADDRINUSE') {
+    console.error(
+      `\n  Port ${PORT} is already in use, another server (perhaps a suspended` +
+      `\n  Jelly Local Sync) is holding it. Stop it, or pick another port:\n` +
+      `\n      PORT=${PORT + 1} npx jelly-local-sync\n`
+    );
+    process.exit(1);
+  }
+  if (err.code === 'EACCES') {
+    console.error(`\n  No permission to bind port ${PORT}. Use a port ≥ 1024, e.g. PORT=7777.\n`);
+    process.exit(1);
+  }
+  throw err;
+});
+
 server.listen(PORT, HOST, () => {
   const cands = lanCandidates();
   const [primary, ...alts] = cands;
@@ -526,12 +544,12 @@ server.listen(PORT, HOST, () => {
     '  Jelly Local Sync',
     '  ────────────────',
     `  Open in browser:  http://localhost:${PORT}`,
-    primary ? `                    http://${primary.address}:${PORT}  (LAN — for iOS over Wi-Fi)` : '',
+    primary ? `                    http://${primary.address}:${PORT}  (LAN, for iOS over Wi-Fi)` : '',
     // Show the runners-up so a user whose phone can't reach the auto-picked
     // address can spot the right interface without guessing.
     ...alts.map((c) => `                    http://${c.address}:${PORT}  (also detected: ${c.name})`),
     '',
-    '  The page shows a per-session URL — paste that into the Jelly SDK',
+    '  The page shows a per-session URL, paste that into the Jelly SDK',
     '  endpoint setting on your device. Refresh the page for a fresh',
     '  isolated session.',
     '',
@@ -540,7 +558,7 @@ server.listen(PORT, HOST, () => {
   openBrowser(`http://localhost:${PORT}`);
 });
 
-// Pop the dashboard open in the default browser on launch — the whole UX is
+// Pop the dashboard open in the default browser on launch, the whole UX is
 // then "run the command, scan the QR". Best-effort and fire-and-forget: a
 // failure (headless box, no GUI) is silent, the printed URL is the fallback.
 // Skipped when stdout isn't a TTY (piped/CI) or when explicitly opted out via
@@ -555,5 +573,5 @@ function openBrowser(url) {
   const args = process.platform === 'win32' ? ['/c', 'start', '', url] : [url];
   try {
     spawn(cmd, args, { stdio: 'ignore', detached: true }).on('error', () => {}).unref();
-  } catch { /* no browser / no GUI — printed URL is the fallback */ }
+  } catch { /* no browser / no GUI, printed URL is the fallback */ }
 }

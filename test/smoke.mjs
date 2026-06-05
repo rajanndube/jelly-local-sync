@@ -53,7 +53,7 @@ try {
   ok(m && m[1] && m[1].length >= 16, 'GET / embeds a 64-bit hex token');
   const token = m[1];
 
-  // POST /sessions — Android requires `status` in the response or decode throws.
+  // POST /sessions, Android requires `status` in the response or decode throws.
   const sesRes = await fetch(`${BASE}/r/${token}/sessions`, {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
@@ -66,7 +66,7 @@ try {
   ok(ses.status === 'active', 'session has status:"active" (Android-required field)');
   ok(typeof ses.createdAt === 'string', 'session has createdAt');
 
-  // POST annotation — server stamps device attribution.
+  // POST annotation, server stamps device attribution.
   const annRes = await fetch(`${BASE}/r/${token}/sessions/s1/annotations`, {
     method: 'POST',
     headers: { 'content-type': 'application/json' },

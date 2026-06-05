@@ -50,7 +50,7 @@
   (function () {
     var TOKEN = '__TOKEN__';
     var PORT = '__PORT__';
-    var LOADED_FROM = '__LOADED_FROM__';            // host:port this page loaded from — reachable by definition
+    var LOADED_FROM = '__LOADED_FROM__';            // host:port this page loaded from, reachable by definition
     var CANDIDATES = __CANDIDATES__;                 // [{ip, iface}, ...]
     var list = document.getElementById('list');
     var banner = document.getElementById('banner');
@@ -99,7 +99,7 @@
       if (reachable.length) {
         banner.className = 'banner ok';
         banner.innerHTML = 'This phone can reach the laptop on <b>' + reachable[0].ip + '</b>. ' +
-          'Head back to the dashboard — it now highlights the working address. Paste it (or re-scan the main QR) into the Jelly toolbar.';
+          'Head back to the dashboard, it now highlights the working address. Paste it (or re-scan the main QR) into the Jelly toolbar.';
       } else {
         banner.className = 'banner bad';
         banner.innerHTML = '<b>No route to the laptop on any address.</b> The phone and laptop may be on different Wi-Fi networks, ' +

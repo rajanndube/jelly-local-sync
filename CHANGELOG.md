@@ -6,10 +6,24 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
-## [0.2.0] — 2026-06-05
+## [0.2.1] - 2026-06-05
+
+### Fixed
+- A busy port no longer dumps an unhandled-error stack trace. `EADDRINUSE`
+  (another instance, or one suspended with Ctrl-Z still holding the socket) and
+  `EACCES` now print a one-line hint and exit cleanly.
+
+### Changed
+- The troubleshooter's firewall guidance now leads with the Android-over-USB
+  bypass (`adb reverse` + the localhost endpoint) for MDM-managed firewalls you
+  can't change, and is explicit that iOS needs an IT/MDM exception or an
+  unmanaged laptop, instead of the dead-end "go change your firewall" advice.
+- Removed em dashes from all user-facing text, docs, and code comments (style).
+
+## [0.2.0] - 2026-06-05
 
 ### Added
-- **Connection troubleshooter** — a sticky "Troubleshoot" button in the left rail
+- **Connection troubleshooter**, a sticky "Troubleshoot" button in the left rail
   opens a two-sided connection diagnostic. Laptop-side self-checks cover the LAN
   address, server binding (`HOST`), VPN/virtual-interface noise, SSE health, and
   self-reachability. A phone-side probe (QR → new `/diag` page) then tests every
@@ -21,7 +35,7 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `POST /r/:token/diag` (relays the phone's report to the dashboard over a new
   `diag` SSE event).
 - **Address picker** under the connect QR when more than one network interface is
-  detected — one selectable row per address, labelled with its interface;
+  detected, one selectable row per address, labelled with its interface;
   selecting one re-encodes every QR and LAN URL live.
 
 ### Changed
@@ -33,18 +47,18 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 - The QR could encode an unreachable VPN/virtual-adapter address on machines
-  where such an interface enumerated before the real Wi-Fi/Ethernet one — the
+  where such an interface enumerated before the real Wi-Fi/Ethernet one, the
   "works on my machine, fails everywhere else" pairing failure. The ranking,
   address picker, and phone-side probe together resolve it.
 
-## [0.1.1] — 2026-06-05
+## [0.1.1] - 2026-06-05
 
 ### Changed
-- Packaging metadata only — no code changes. Added `repository`, `homepage`,
+- Packaging metadata only, no code changes. Added `repository`, `homepage`,
   `bugs`, `keywords`, and `author` to `package.json` so the npm page links back
   to the (now public) GitHub repo. Runtime behavior is identical to 0.1.0.
 
-## [0.1.0] — 2026-06-05
+## [0.1.0] - 2026-06-05
 
 Initial public release.
 
@@ -52,7 +66,7 @@ Initial public release.
 - Zero-dependency local server (`server.mjs`) implementing a subset of the Jelly
   MCP-style `/sessions` HTTP contract, so the Android / iOS / web SDKs sync
   unmodified.
-- Single-page dashboard (`public/index.html`) — left rail with a live Devices
+- Single-page dashboard (`public/index.html`), left rail with a live Devices
   list, QR-first "Scan to connect" hero, and a live annotation feed over SSE.
 - `npx jelly-local-sync` one-liner: starts the server and auto-opens the
   dashboard in the default browser. Opt out with `--no-open` / `NO_OPEN=1`;
@@ -63,7 +77,8 @@ Initial public release.
 - Per-device attribution by client IP, multi-device support over one URL.
 - Request body caps (256 KB JSON, 25 MB image) returning `413` on overflow.
 
-[Unreleased]: https://github.com/rajanndube/jelly-local-sync/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/rajanndube/jelly-local-sync/compare/v0.2.1...HEAD
+[0.2.1]: https://github.com/rajanndube/jelly-local-sync/compare/v0.2.0...v0.2.1
 [0.2.0]: https://github.com/rajanndube/jelly-local-sync/compare/v0.1.1...v0.2.0
 [0.1.1]: https://github.com/rajanndube/jelly-local-sync/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/rajanndube/jelly-local-sync/releases/tag/v0.1.0

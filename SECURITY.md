@@ -3,14 +3,14 @@
 ## Threat model
 
 Jelly Local Sync is a **local-only** tool. It binds an HTTP server on your
-machine (default `0.0.0.0:7777`) so phones on the same LAN — or tunnelling over
-`adb reverse` — can post QA annotations to it. Nothing is sent to any remote
+machine (default `0.0.0.0:7777`) so phones on the same LAN, or tunnelling over
+`adb reverse`, can post QA annotations to it. Nothing is sent to any remote
 service.
 
 Access control is **capability-based**: each `GET /` mints a fresh 64-bit random
 token, and every API path is namespaced under `/r/<token>/...`. Anyone who can
 reach the port *and* knows the token has full read/write access to that room.
-This is intentional and appropriate for a local QA tool — it is **not** an
+This is intentional and appropriate for a local QA tool, it is **not** an
 internet-facing service and should not be exposed to untrusted networks.
 
 To limit exposure, bind to localhost only:

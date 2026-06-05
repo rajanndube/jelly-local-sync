@@ -17,23 +17,23 @@ The Jelly SDK (Android, iOS, web) already speaks an MCP-style `/sessions` HTTP c
 npx jelly-local-sync
 ```
 
-That's it — no clone, no install, no dependencies. It starts the server and pops your browser open to the dashboard. The only prerequisite is Node 18+.
+That's it, no clone, no install, no dependencies. It starts the server and pops your browser open to the dashboard. The only prerequisite is Node 18+.
 
 Then:
 
 1. Your browser opens to the dashboard automatically (or visit `http://localhost:7777`).
-2. **Scan the QR code** with your phone — or copy the **Endpoint URL** the page shows (a one-time per-session URL like `http://localhost:7777/r/<token>`) and paste it into the Jelly SDK's **Endpoint** setting.
+2. **Scan the QR code** with your phone, or copy the **Endpoint URL** the page shows (a one-time per-session URL like `http://localhost:7777/r/<token>`) and paste it into the Jelly SDK's **Endpoint** setting.
 3. Toggle **Sync** on, and annotate. The page updates live.
 
 Refresh the page to start a fresh isolated session. The old URL stays in memory until the process exits but no longer surfaces in the UI.
 
 > Running from a clone instead of npm? `node server.mjs` does the same thing.
 >
-> **No auto-open:** pass `--no-open` (or set `NO_OPEN=1`) to keep a browser tab from popping — useful for `adb reverse` / remote / headless setups. The tab is also skipped automatically when output isn't a terminal (piped/CI).
+> **No auto-open:** pass `--no-open` (or set `NO_OPEN=1`) to keep a browser tab from popping, useful for `adb reverse` / remote / headless setups. The tab is also skipped automatically when output isn't a terminal (piped/CI).
 
 ## Connecting devices
 
-The page itself has tabbed setup steps with copy-pastable commands — open it and follow along. The summary below is for reference.
+The page itself has tabbed setup steps with copy-pastable commands, open it and follow along. The summary below is for reference.
 
 ### Android over USB (cable-only, MDM-safe)
 
@@ -43,19 +43,19 @@ Plug the phone in with USB debugging enabled, then once:
 adb reverse tcp:7777 tcp:7777
 ```
 
-The phone's `localhost:7777` now tunnels over the USB transport to your laptop. No Wi-Fi or LAN involved at any layer — works on airplane mode, on a SIM-less device, or under an MDM that blocks all network traffic.
+The phone's `localhost:7777` now tunnels over the USB transport to your laptop. No Wi-Fi or LAN involved at any layer, works on airplane mode, on a SIM-less device, or under an MDM that blocks all network traffic.
 
-> **Caveat.** Some corporate Android profiles disable USB debugging entirely. If ADB itself is blocked, this path is gone — same as any developer tooling on that device.
+> **Caveat.** Some corporate Android profiles disable USB debugging entirely. If ADB itself is blocked, this path is gone, same as any developer tooling on that device.
 
 ### iOS (Wi-Fi only)
 
-iOS has no `adb reverse` equivalent. `iproxy` goes Mac→Device (Charles/Proxyman use this for the opposite direction — Mac inspecting traffic *from* the device), not Device→Mac, so it doesn't help route an iOS app's `localhost` requests to the laptop server.
+iOS has no `adb reverse` equivalent. `iproxy` goes Mac→Device (Charles/Proxyman use this for the opposite direction, Mac inspecting traffic *from* the device), not Device→Mac, so it doesn't help route an iOS app's `localhost` requests to the laptop server.
 
 The pairing path on iOS is:
 
 1. Put the iPhone and the laptop on the same Wi-Fi network.
 2. Scan the QR code on the dashboard (which encodes the LAN URL), or paste the LAN URL into the SDK's Endpoint setting manually.
-3. iOS may prompt for Local Network permission — grant it.
+3. iOS may prompt for Local Network permission, grant it.
 
 Corporate MDMs that block local-network traffic will block this path. There is no current workaround for iOS in those environments.
 
@@ -65,7 +65,7 @@ If Wi-Fi is available and the phone isn't under an MDM that blocks local-network
 
 ### Web (Jelly toolbar in a desktop browser)
 
-Same machine, same origin — paste the URL straight in. CORS is open, no tunneling needed.
+Same machine, same origin, paste the URL straight in. CORS is open, no tunneling needed.
 
 ## What gets synced
 
@@ -77,7 +77,7 @@ Each annotation arrives as JSON over `POST /r/<token>/sessions/<sid>/annotations
 - element + source-file metadata
 - buttons to copy markdown, copy the raw comment, or copy the image to clipboard
 
-The SDK also pings `POST /r/<token>/hello` with device info (model, OS version, app name) on connect and every 12 seconds (the dashboard's manual-probe button waits up to 15 seconds for a heartbeat to decide "connected" vs "stale"). The header status line uses this to show e.g. **Pixel 7 · Android 14 — Connected** or **Last seen 2m ago** so you can tell at a glance whether the cable is still good.
+The SDK also pings `POST /r/<token>/hello` with device info (model, OS version, app name) on connect and every 12 seconds (the dashboard's manual-probe button waits up to 15 seconds for a heartbeat to decide "connected" vs "stale"). The header status line uses this to show e.g. **Pixel 7 · Android 14, Connected** or **Last seen 2m ago** so you can tell at a glance whether the cable is still good.
 
 ## Configuration
 
@@ -108,7 +108,7 @@ The HTTP shape under `/r/<token>/...` is a subset of the MCP `/sessions` contrac
 
 Storage is in-memory and per-token. Restarting the server clears everything.
 
-Per-request body caps: **256 KB** for JSON payloads, **25 MB** for binary image uploads. Oversized bodies are rejected with 413. There is no eviction of in-memory rooms between sessions — a single Node process accumulating thousands of tokens with image uploads will grow forever; the intended lifecycle is "restart between QA sessions", consistent with `npx jelly-local-sync` usage. If you keep one process up for days, restart it periodically.
+Per-request body caps: **256 KB** for JSON payloads, **25 MB** for binary image uploads. Oversized bodies are rejected with 413. There is no eviction of in-memory rooms between sessions, a single Node process accumulating thousands of tokens with image uploads will grow forever; the intended lifecycle is "restart between QA sessions", consistent with `npx jelly-local-sync` usage. If you keep one process up for days, restart it periodically.
 
 ## Security model
 
