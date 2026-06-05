@@ -23,6 +23,8 @@ node server.mjs                  # default PORT=7777, HOST=0.0.0.0
 PORT=8080 HOST=127.0.0.1 node server.mjs   # bind strict-localhost
 ```
 
+The dashboard auto-opens on launch. In an interactive terminal, press `o` to (re)open the dashboard. To quit, press Ctrl+C twice: the first press arms and shows a live per-second countdown (`Press Ctrl+C again to quit  (5s)`), a second within the window runs the clean shutdown that closes the server and frees the port; if the countdown lapses it disarms (`Quit cancelled, still running.`). There is no `q` quit. Because interactive mode puts stdin in raw mode, **Ctrl+Z no longer suspends** the process (it's the suspend-still-holding-the-port footgun); it's delivered as a keystroke and ignored with a hint. Piped/CI runs (no TTY) skip the hotkeys and exit cleanly on SIGINT/SIGTERM. See the launch block at the bottom of `server.mjs` (`INTERACTIVE`, `startInteractive`, `onKey`, `armOrQuit`, `renderCountdown`, `disarm`, `shutdown`).
+
 Then open `http://localhost:7777` in a browser. The page issues a fresh token on every `GET /` (refresh rotates). The layout is a persistent **left rail + main column**:
 
 - **Left rail**, brand + server-connection dot; a live **Devices** list (one row per connected device: colour swatch, label, live/stale dot, per-device annotation tally; click to filter the feed); and a sticky **rail footer** pinned bottom-left holding **Connect a device** (shown once ≥1 device is paired) and **Troubleshoot** (always shown, opens the connection diagnostic, see below).

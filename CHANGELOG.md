@@ -6,6 +6,22 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+- Interactive CLI. When run in a terminal, press `o` to (re)open the dashboard
+  in the browser. The dashboard still auto-opens on launch as before; `o` is for
+  reopening.
+- Quit ergonomics: a single Ctrl+C arms and shows a live per-second countdown
+  ("Press Ctrl+C again to quit  (5s)"); a second Ctrl+C within the window quits
+  and frees the port. If the countdown lapses it disarms ("Quit cancelled, still
+  running.") so one reflexive Ctrl+C can't tear down a live QA session.
+
+### Changed
+- Ctrl+Z no longer suspends the process. Because the interactive mode puts the
+  terminal in raw mode, Ctrl+Z is delivered to us as a keystroke (and ignored
+  with a hint) instead of becoming a SIGTSTP suspend, which is what used to
+  leave the process alive in the background still holding the port. Piped/CI
+  runs (no TTY) keep the old behavior and exit cleanly on SIGINT/SIGTERM.
+
 ## [0.2.1] - 2026-06-05
 
 ### Fixed
