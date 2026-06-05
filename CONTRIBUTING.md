@@ -9,8 +9,9 @@ the SDK wire contract intact?"
 - **No runtime dependencies.** The whole point is `npx` with nothing to install.
   Built-in Node modules only. PRs that add a `dependencies` entry will be
   declined unless there's no other way.
-- **No build step.** `server.mjs` runs as-is; `public/index.html` is hand-written
-  HTML + CSS + inline JS. Keep it that way.
+- **No build step.** `server.mjs` runs as-is; the page is plain
+  `public/index.html` + `public/app.css` + `public/app.js` (hand-written, no
+  bundler or transpiler). Keep it that way.
 - **Don't break the wire contract.** The Android SDK decodes with strict
   `kotlinx.serialization`, a renamed or missing field breaks sync *silently*.
   Server changes must stay backward-compatible with the SDK schemas. When in
@@ -36,6 +37,9 @@ There's no install step, `npm test` runs against the raw files.
 2. Keep the change focused; update `README.md` and `CHANGELOG.md` if behavior changes.
 3. Make sure `npm test` passes locally (CI runs it on Node 18/20/22).
 4. `main` is protected, changes land via PR, not direct push.
+5. Commit with the email tied to your GitHub account (`git config user.email "you@…"`)
+   so your work is attributed to you in the contributor graph. A machine-local
+   default like `you@your-laptop.local` links to nobody and leaves you uncredited.
 
 ## Reporting issues
 

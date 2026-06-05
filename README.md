@@ -128,3 +128,10 @@ Per-request body caps: **256 KB** for JSON payloads, **25 MB** for binary image 
 The token is a 64-bit random hex string. Knowing the URL is the only access control, which is fine for a local-network tool. The server defaults to `0.0.0.0` so phones on the same Wi-Fi can reach it; tighten with `HOST=127.0.0.1` if you only need same-machine access.
 
 The process-global control routes (`/session/new`, `/clickup/*`) carry no token, so anything that can reach the host:port can hit them (start a new session, drive the ClickUp connection). This is consistent with the trusted-local-network assumption above — don't expose the server to an untrusted network. ClickUp credentials and tokens are held server-side only (under `~/.jelly-local-sync/`), never sent to the browser.
+
+## Contributors
+
+- [**Abhishek PR**](https://github.com/abhishekpr-qe) — ClickUp integration
+- [**Rajan Dube**](https://github.com/rajanndube) — maintainer
+
+New contributors welcome — see [CONTRIBUTING.md](CONTRIBUTING.md).
