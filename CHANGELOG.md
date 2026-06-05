@@ -6,6 +6,13 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.1.1] — 2026-06-05
+
+### Changed
+- Packaging metadata only — no code changes. Added `repository`, `homepage`,
+  `bugs`, `keywords`, and `author` to `package.json` so the npm page links back
+  to the (now public) GitHub repo. Runtime behavior is identical to 0.1.0.
+
 ## [0.1.0] — 2026-06-05
 
 Initial public release.
@@ -25,5 +32,6 @@ Initial public release.
 - Per-device attribution by client IP, multi-device support over one URL.
 - Request body caps (256 KB JSON, 25 MB image) returning `413` on overflow.
 
-[Unreleased]: https://github.com/rajanndube/jelly-local-sync/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/rajanndube/jelly-local-sync/compare/v0.1.1...HEAD
+[0.1.1]: https://github.com/rajanndube/jelly-local-sync/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/rajanndube/jelly-local-sync/releases/tag/v0.1.0
