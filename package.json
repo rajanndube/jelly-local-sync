@@ -1,0 +1,43 @@
+{
+  "name": "jelly-local-sync",
+  "version": "0.1.0",
+  "description": "Local-only browser viewer for Jelly QA annotations. Open in browser, paste the per-session URL into the SDK, see annotations stream in over USB / LAN. Nothing leaves the machine.",
+  "type": "module",
+  "bin": {
+    "jelly-local-sync": "server.mjs"
+  },
+  "main": "./server.mjs",
+  "scripts": {
+    "start": "node server.mjs",
+    "test": "node test/smoke.mjs"
+  },
+  "keywords": [
+    "jelly",
+    "qa",
+    "annotations",
+    "local",
+    "sse",
+    "mobile-testing",
+    "android",
+    "ios",
+    "adb-reverse",
+    "cli"
+  ],
+  "author": "Rajan Dube <rajan@aspora.com>",
+  "license": "MIT",
+  "homepage": "https://github.com/rajanndube/jelly-local-sync#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/rajanndube/jelly-local-sync.git"
+  },
+  "bugs": {
+    "url": "https://github.com/rajanndube/jelly-local-sync/issues"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "files": [
+    "server.mjs",
+    "public/"
+  ]
+}

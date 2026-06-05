@@ -1,0 +1,470 @@
+#!/usr/bin/env node
+//
+// Jelly Local Sync — zero-dep local server + browser viewer.
+//
+// Browse to http://localhost:7777, copy the per-session URL the page shows,
+// paste it into the Jelly SDK's endpoint setting on phone (or web). Annotations
+// POSTed by the SDK stream into the page over SSE. Nothing leaves the machine.
+//
+// Each GET / issues a fresh, unguessable token. The token is also the API
+// namespace prefix (/r/<token>/...) — only clients that know the token can
+// post or read. Refresh = new token. Old room remains in memory until the
+// process exits but is unreachable without the URL.
+//
+// The HTTP shape under /r/<token>/... mirrors the existing Jelly /sessions
+// contract (see jelly/.../sync/JellyApi.kt) so the SDK works unmodified.
+// Image upload (POST /annotations/:id/image, binary body) is the one
+// extension — the SDK uploads the baked PNG so the browser can render it.
+
+import http from 'node:http';
+import { randomBytes } from 'node:crypto';
+import { readFile } from 'node:fs/promises';
+import { networkInterfaces } from 'node:os';
+import { fileURLToPath } from 'node:url';
+import { spawn } from 'node:child_process';
+import path from 'node:path';
+
+const PORT = parseInt(process.env.PORT ?? '7777', 10);
+const HOST = process.env.HOST ?? '0.0.0.0';
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+
+// Per-token state. Each "room" is one browser tab's stream.
+//   sessions:   Map<sessionId, Session>          — created lazily by SDK
+//   annotations: Annotation[]                    — flat list, newest last
+//   images:     Map<annotationId, {ct, bytes}>   — baked PNGs from SDK
+//   sse:        Set<ServerResponse>              — live page listeners
+//   devices:    Map<deviceKey, DeviceInfo>       — every SDK that has hello'd
+//
+// Multiple devices can point at the same URL/token (paste it into several
+// phones), so a room tracks a SET of devices, not one. Devices are keyed by
+// client IP — the only stable per-device discriminator on the wire, since the
+// SDK's /hello body carries no device id. The same key is stamped onto every
+// annotation (by the IP its POST arrived on), which is how the page attributes
+// an annotation to the device that sent it. Limitation: multiple devices
+// tunnelling over `adb reverse` to one host port all share 127.0.0.1 and can't
+// be told apart — the multi-device case that works cleanly is several phones on
+// Wi-Fi, each with its own LAN IP.
+const rooms = new Map();
+
+function newToken() {
+  return randomBytes(8).toString('hex'); // 64-bit, fine for local capability
+}
+
+function getRoom(token, create = false) {
+  let r = rooms.get(token);
+  if (!r && create) {
+    r = {
+      sessions: new Map(),
+      annotations: [],
+      images: new Map(),
+      sse: new Set(),
+      devices: new Map(),
+    };
+    rooms.set(token, r);
+  }
+  return r;
+}
+
+// Stable per-device key for this room. The SDK sends no device id, so we use
+// the client IP — distinct per phone on a LAN. Normalise the IPv4-mapped IPv6
+// form (::ffff:192.168.1.5) and loopback so the same device hashes the same way
+// whether it reaches us over v4 or v6.
+function clientKey(req) {
+  let a = req.socket?.remoteAddress ?? 'unknown';
+  if (a.startsWith('::ffff:')) a = a.slice(7);
+  if (a === '::1') a = '127.0.0.1';
+  return a;
+}
+
+// Register/refresh the device behind this request and return it. Annotations
+// can arrive before the first /hello on a cold start; in that case we mint a
+// placeholder device (no descriptor yet, lastHelloMs null) so the annotation
+// still has a home in the device list and gets re-labelled once /hello lands.
+function touchDevice(room, key, body, now) {
+  const existing = room.devices.get(key);
+  const device = {
+    key,
+    platform: body?.platform ?? existing?.platform ?? 'unknown',
+    model: body?.model ?? existing?.model ?? null,
+    manufacturer: body?.manufacturer ?? existing?.manufacturer ?? null,
+    osVersion: body?.osVersion ?? existing?.osVersion ?? null,
+    appName: body?.appName ?? existing?.appName ?? null,
+    sdkVersion: body?.sdkVersion ?? existing?.sdkVersion ?? null,
+    firstSeenMs: existing?.firstSeenMs ?? now,
+    // null marks "seen via an annotation but never heartbeat" — the page shows
+    // it without a live pulse. A real /hello passes the body and stamps a time.
+    lastHelloMs: body ? now : (existing?.lastHelloMs ?? null),
+  };
+  room.devices.set(key, device);
+  return device;
+}
+
+function lanIp() {
+  for (const ifs of Object.values(networkInterfaces())) {
+    for (const i of ifs ?? []) {
+      if (i.family === 'IPv4' && !i.internal) return i.address;
+    }
+  }
+  return null;
+}
+
+const CORS = {
+  'access-control-allow-origin': '*',
+  'access-control-allow-methods': 'GET,POST,PATCH,DELETE,OPTIONS',
+  'access-control-allow-headers': 'content-type',
+};
+
+function send(res, status, body, headers = {}) {
+  const isBuffer = Buffer.isBuffer(body);
+  const isString = typeof body === 'string';
+  const payload = isBuffer ? body : isString ? body : JSON.stringify(body ?? null);
+  const contentType =
+    headers['content-type'] ??
+    (isBuffer ? 'application/octet-stream' : isString ? 'text/plain; charset=utf-8' : 'application/json');
+  res.writeHead(status, { ...CORS, 'content-type': contentType, ...headers });
+  res.end(payload);
+}
+
+// Size caps: prevent a buggy/malicious client from OOMing the server by
+// streaming an unbounded body. JSON bodies (annotation payloads, /hello info)
+// are tiny — 256 KB is huge headroom. Images cap at 25 MB which covers a 4K
+// baked WebP comfortably.
+const JSON_BODY_CAP = 256 * 1024;
+const IMAGE_BODY_CAP = 25 * 1024 * 1024;
+
+// Reads the request body up to `cap` bytes. Throws PayloadTooLargeError if the
+// stream exceeds the cap. We *pause* the stream rather than destroying it so
+// the response socket (shared with the request socket) is still writable —
+// the global handler needs to send a 413 back, then `res.end()` closes
+// cleanly. Throwing without pausing would leak memory while we keep
+// accumulating chunks for nothing.
+class PayloadTooLargeError extends Error {
+  constructor(cap) { super(`payload exceeds ${cap} bytes`); this.cap = cap; }
+}
+async function readWithCap(req, cap) {
+  const chunks = [];
+  let size = 0;
+  for await (const c of req) {
+    size += c.length;
+    if (size > cap) {
+      req.pause();
+      req.removeAllListeners('data');
+      throw new PayloadTooLargeError(cap);
+    }
+    chunks.push(c);
+  }
+  return Buffer.concat(chunks);
+}
+
+async function readJson(req) {
+  const buf = await readWithCap(req, JSON_BODY_CAP);
+  if (!buf.length) return null;
+  try {
+    return JSON.parse(buf.toString('utf-8'));
+  } catch {
+    return null;
+  }
+}
+
+async function readBuffer(req) {
+  return readWithCap(req, IMAGE_BODY_CAP);
+}
+
+function broadcast(room, type, data) {
+  const payload = `event: ${type}\ndata: ${JSON.stringify(data)}\n\n`;
+  // Snapshot the listener set before iterating. A listener disconnecting
+  // mid-broadcast mutates `room.sse` from the req.on('close') handler; iterating
+  // the live Set would skip neighbours in some engines and is a race anyway.
+  // Cheap (one tiny array copy per event) and correct.
+  for (const res of [...room.sse]) {
+    try { res.write(payload); } catch { /* listener gone */ }
+  }
+}
+
+// Whitelisted image MIME types for upload + serve. Anything else falls back
+// to image/png so the browser can't be tricked into rendering arbitrary
+// MIME-confused content from the cache (the server is local, but cheap to do).
+const IMAGE_MIME_WHITELIST = new Set(['image/png', 'image/webp', 'image/jpeg']);
+
+// Annotation IDs are echoed into SSE event payloads. A malicious ID containing
+// `\n` could split the SSE frame and inject a fake `event:` line. Constrain
+// to a conservative shape — UUIDs, hex strings, and short slugs all fit.
+const ANNOTATION_ID_RE = /^[A-Za-z0-9_-]{1,128}$/;
+
+const server = http.createServer(async (req, res) => {
+  try {
+    const url = new URL(req.url, `http://${req.headers.host}`);
+    const m = url.pathname;
+
+    if (req.method === 'OPTIONS') return send(res, 204, '');
+
+    // Index — fresh token every visit, served as a static page that knows
+    // its own token. Browser refresh re-fetches and rotates.
+    if (m === '/' && req.method === 'GET') {
+      const token = newToken();
+      getRoom(token, true);
+      const html = await readFile(path.join(__dirname, 'public', 'index.html'), 'utf-8');
+      const lan = lanIp();
+      const filled = html
+        .replaceAll('__TOKEN__', token)
+        .replaceAll('__PORT__', String(PORT))
+        .replaceAll('__LAN_IP__', lan ?? '');
+      return send(res, 200, filled, {
+        'content-type': 'text/html; charset=utf-8',
+        'cache-control': 'no-store',
+      });
+    }
+
+    // Static asset shipped alongside the page (qrcode.js, etc.). Whitelist by
+    // exact filename so the path traversal surface is zero. Cached aggressively
+    // since these files only change on a new release.
+    const STATIC_ASSETS = { '/qrcode.js': 'application/javascript; charset=utf-8' };
+    if (req.method === 'GET' && STATIC_ASSETS[m]) {
+      const file = await readFile(path.join(__dirname, 'public', m.slice(1)), 'utf-8');
+      return send(res, 200, file, {
+        'content-type': STATIC_ASSETS[m],
+        'cache-control': 'public, max-age=3600',
+      });
+    }
+
+    // Everything else lives under /r/:token/...
+    const pm = m.match(/^\/r\/([a-f0-9]+)(\/.*)?$/);
+    if (!pm) return send(res, 404, { error: 'not found' });
+
+    const token = pm[1];
+    const rest = pm[2] ?? '/';
+    const room = getRoom(token, true);
+
+    // SSE — page subscribes here, replays existing annotations on connect.
+    if (rest === '/events' && req.method === 'GET') {
+      res.writeHead(200, {
+        ...CORS,
+        'content-type': 'text/event-stream',
+        'cache-control': 'no-cache',
+        connection: 'keep-alive',
+        'x-accel-buffering': 'no',
+      });
+      res.write(`retry: 2000\n\n`);
+      // Include serverNow so the page can compute device-liveness with no clock-skew
+      // assumption — it diffs lastHelloMs against serverNow, then anchors to its own Date.now().
+      res.write(`event: hello\ndata: ${JSON.stringify({
+        token,
+        count: room.annotations.length,
+        devices: [...room.devices.values()],
+        serverNow: Date.now(),
+      })}\n\n`);
+      for (const a of room.annotations) {
+        res.write(`event: annotation\ndata: ${JSON.stringify(a)}\n\n`);
+      }
+      room.sse.add(res);
+      const ka = setInterval(() => {
+        try { res.write(`: keepalive\n\n`); } catch {}
+      }, 25_000);
+      req.on('close', () => {
+        clearInterval(ka);
+        room.sse.delete(res);
+      });
+      return;
+    }
+
+    // /hello — SDK identifies itself and heartbeats. Body shape:
+    //   { platform, model, manufacturer, osVersion, appName, sdkVersion }
+    // Keyed by client IP so several phones pointed at the same URL each register
+    // as a distinct device. Each call refreshes that device's lastHelloMs so the
+    // page can show per-device "connected / last seen Xs ago" liveness.
+    if (rest === '/hello' && req.method === 'POST') {
+      const body = (await readJson(req)) ?? {};
+      const now = Date.now();
+      const device = touchDevice(room, clientKey(req), body, now);
+      broadcast(room, 'device', { device, serverNow: now });
+      return send(res, 200, { ok: true });
+    }
+
+    // /sessions — minimal MCP-shape so the SDK works unmodified.
+    if (rest === '/sessions' && req.method === 'GET') {
+      return send(res, 200, [...room.sessions.values()]);
+    }
+    if (rest === '/sessions' && req.method === 'POST') {
+      const body = (await readJson(req)) ?? {};
+      const id = randomBytes(6).toString('hex');
+      // `status` is required by the Android SDK's strict kotlinx Session
+      // decode — omit it and createSession() throws MissingFieldException,
+      // which runCatching swallows and surfaces as "couldn't reach endpoint".
+      // Match the cross-client contract: active/approved/closed.
+      const session = {
+        id,
+        url: body.url ?? '',
+        status: 'active',
+        createdAt: new Date().toISOString(),
+      };
+      room.sessions.set(id, session);
+      return send(res, 200, session);
+    }
+
+    let mm;
+    if ((mm = rest.match(/^\/sessions\/([^/]+)$/)) && req.method === 'GET') {
+      const sid = mm[1];
+      const sess = room.sessions.get(sid);
+      if (!sess) return send(res, 404, { error: 'not found' });
+      const annotations = room.annotations.filter((a) => a.sessionId === sid);
+      return send(res, 200, { ...sess, annotations });
+    }
+
+    if ((mm = rest.match(/^\/sessions\/([^/]+)\/annotations$/)) && req.method === 'POST') {
+      const sid = mm[1];
+      const a = await readJson(req);
+      if (!a?.id) return send(res, 400, { error: 'missing id' });
+      if (typeof a.id !== 'string' || !ANNOTATION_ID_RE.test(a.id)) {
+        return send(res, 400, { error: 'invalid id format' });
+      }
+      // Attribute the annotation to whichever device's IP it arrived from. If we
+      // haven't seen a /hello from that IP yet, mint a placeholder device and
+      // announce it so the page's device list and filters stay consistent.
+      const key = clientKey(req);
+      const existed = room.devices.has(key);
+      const device = touchDevice(room, key, null, Date.now());
+      if (!existed) broadcast(room, 'device', { device, serverNow: Date.now() });
+      const stamped = {
+        ...a,
+        sessionId: sid,
+        createdAt: a.createdAt ?? new Date().toISOString(),
+        // Device attribution (server-added; underscore-prefixed to stay out of
+        // the SDK's annotation schema). _deviceKey joins to the device list;
+        // _device is a denormalised snapshot so the page can label/colour the
+        // card even before it has processed that device's SSE event.
+        _deviceKey: key,
+        _device: {
+          key: device.key,
+          platform: device.platform,
+          model: device.model,
+          manufacturer: device.manufacturer,
+          osVersion: device.osVersion,
+        },
+      };
+      const idx = room.annotations.findIndex((x) => x.id === stamped.id);
+      if (idx >= 0) room.annotations[idx] = stamped;
+      else room.annotations.push(stamped);
+      broadcast(room, 'annotation', stamped);
+      return send(res, 200, stamped);
+    }
+
+    if ((mm = rest.match(/^\/annotations\/([^/]+)$/)) && req.method === 'PATCH') {
+      const aid = mm[1];
+      const patch = (await readJson(req)) ?? {};
+      const idx = room.annotations.findIndex((x) => x.id === aid);
+      if (idx < 0) return send(res, 404, { error: 'not found' });
+      const merged = {
+        ...room.annotations[idx],
+        ...patch,
+        id: aid,
+        updatedAt: new Date().toISOString(),
+      };
+      room.annotations[idx] = merged;
+      broadcast(room, 'annotation', merged);
+      return send(res, 200, merged);
+    }
+
+    if ((mm = rest.match(/^\/annotations\/([^/]+)$/)) && req.method === 'DELETE') {
+      const aid = mm[1];
+      room.annotations = room.annotations.filter((x) => x.id !== aid);
+      room.images.delete(aid);
+      broadcast(room, 'delete', { id: aid });
+      return send(res, 200, { ok: true });
+    }
+
+    // Bulk clear — fired by the page's "Delete all" button. Single SSE event so
+    // listeners don't get a flood of per-id 'delete' events on a big purge.
+    if (rest === '/annotations' && req.method === 'DELETE') {
+      const n = room.annotations.length;
+      room.annotations = [];
+      room.images.clear();
+      broadcast(room, 'clear', { count: n });
+      return send(res, 200, { ok: true, deleted: n });
+    }
+
+    if ((mm = rest.match(/^\/sessions\/([^/]+)\/action$/)) && req.method === 'POST') {
+      return send(res, 200, {
+        success: true,
+        annotationCount: room.annotations.length,
+        delivered: { sseListeners: room.sse.size, webhooks: 0, total: room.sse.size },
+      });
+    }
+
+    // Image bytes. SDK POSTs the baked PNG/WebP straight as the request body
+    // with the file's content-type. Page fetches via GET to render <img>.
+    if ((mm = rest.match(/^\/annotations\/([^/]+)\/image$/)) && req.method === 'POST') {
+      const aid = mm[1];
+      if (!ANNOTATION_ID_RE.test(aid)) return send(res, 400, { error: 'invalid id' });
+      const buf = await readBuffer(req);
+      if (!buf.length) return send(res, 400, { error: 'empty body' });
+      const reqCt = (req.headers['content-type'] ?? 'image/png').split(';')[0].trim();
+      // Untrusted MIME types fall back to image/png rather than being stored
+      // and re-served as-is. The browser would otherwise render whatever the
+      // upload claimed.
+      const ct = IMAGE_MIME_WHITELIST.has(reqCt) ? reqCt : 'image/png';
+      room.images.set(aid, { ct, bytes: buf });
+      broadcast(room, 'image', { id: aid });
+      return send(res, 200, { ok: true, size: buf.length });
+    }
+
+    if ((mm = rest.match(/^\/annotations\/([^/]+)\/image$/)) && req.method === 'GET') {
+      const aid = mm[1];
+      const img = room.images.get(aid);
+      if (!img) return send(res, 404, { error: 'not found' });
+      return send(res, 200, img.bytes, { 'content-type': img.ct, 'cache-control': 'no-store' });
+    }
+
+    return send(res, 404, { error: 'not found' });
+  } catch (err) {
+    // PayloadTooLargeError is the one case where the request was at fault
+    // (client streaming an oversized body) — surface 413 so the SDK can log
+    // it clearly rather than retrying a doomed upload. Everything else maps
+    // to a generic 500 with the actual exception logged server-side only —
+    // raw err.message can include internal paths/library noise we don't want
+    // any client (or random web page) to see.
+    if (err instanceof PayloadTooLargeError) {
+      console.warn('[jelly-local-sync]', err.message);
+      if (!res.headersSent) send(res, 413, { error: 'payload too large' });
+      return;
+    }
+    console.error('[jelly-local-sync] handler error:', err);
+    if (!res.headersSent) send(res, 500, { error: 'internal server error' });
+    else try { res.end(); } catch {}
+  }
+});
+
+server.listen(PORT, HOST, () => {
+  const ip = lanIp();
+  const lines = [
+    '',
+    '  Jelly Local Sync',
+    '  ────────────────',
+    `  Open in browser:  http://localhost:${PORT}`,
+    ip ? `                    http://${ip}:${PORT}  (LAN — for iOS over Wi-Fi)` : '',
+    '',
+    '  The page shows a per-session URL — paste that into the Jelly SDK',
+    '  endpoint setting on your device. Refresh the page for a fresh',
+    '  isolated session.',
+    '',
+  ].filter(Boolean);
+  console.log(lines.join('\n'));
+  openBrowser(`http://localhost:${PORT}`);
+});
+
+// Pop the dashboard open in the default browser on launch — the whole UX is
+// then "run the command, scan the QR". Best-effort and fire-and-forget: a
+// failure (headless box, no GUI) is silent, the printed URL is the fallback.
+// Skipped when stdout isn't a TTY (piped/CI) or when explicitly opted out via
+// `--no-open` / `NO_OPEN=1` (e.g. adb-reverse / remote setups that don't want
+// a local tab popping up).
+function openBrowser(url) {
+  if (process.argv.includes('--no-open') || process.env.NO_OPEN) return;
+  if (!process.stdout.isTTY) return;
+  const cmd = process.platform === 'darwin' ? 'open'
+            : process.platform === 'win32' ? 'cmd'
+            : 'xdg-open';
+  const args = process.platform === 'win32' ? ['/c', 'start', '', url] : [url];
+  try {
+    spawn(cmd, args, { stdio: 'ignore', detached: true }).on('error', () => {}).unref();
+  } catch { /* no browser / no GUI — printed URL is the fallback */ }
+}

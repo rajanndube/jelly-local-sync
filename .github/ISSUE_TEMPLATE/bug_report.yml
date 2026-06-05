@@ -1,0 +1,47 @@
+name: Bug report
+description: Something isn't working
+labels: [bug]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened?
+      description: A clear description of the bug and what you expected instead.
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Run `npx jelly-local-sync`
+        2. Pair an Android device over `adb reverse`
+        3. ...
+    validations:
+      required: true
+  - type: dropdown
+    id: platform
+    attributes:
+      label: Device / pairing path
+      options:
+        - Android over USB (adb reverse)
+        - Android over Wi-Fi (QR / LAN)
+        - iOS over Wi-Fi (QR / LAN)
+        - Web (desktop browser)
+        - Other / not sure
+    validations:
+      required: true
+  - type: input
+    id: versions
+    attributes:
+      label: Versions
+      description: jelly-local-sync version, Node version, OS, SDK version.
+      placeholder: "jelly-local-sync 0.1.0, Node 20.11, macOS 15.5, Android SDK x.y"
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Server output / logs
+      description: Paste the server console output and any relevant SDK logs (e.g. `adb logcat -s JellySync`).
+      render: shell

@@ -1,0 +1,9 @@
+node_modules/
+.DS_Store
+.env
+.env.*
+*.log
+*.tgz
+
+# Unrelated local scratch tooling — not part of this package.
+analytics_debug_bridge.py
