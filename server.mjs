@@ -23,6 +23,7 @@ import { networkInterfaces } from 'node:os';
 import { fileURLToPath } from 'node:url';
 import { spawn } from 'node:child_process';
 import path from 'node:path';
+import { initClickup, handleClickup } from './clickup.mjs';
 
 const PORT = parseInt(process.env.PORT ?? '7777', 10);
 const HOST = process.env.HOST ?? '0.0.0.0';
@@ -270,6 +271,10 @@ const server = http.createServer(async (req, res) => {
         'cache-control': 'public, max-age=3600',
       });
     }
+
+    // ClickUp integration routes (process-global, /clickup/*). Self-contained
+    // in clickup.mjs; returns true once it has owned the response.
+    if (await handleClickup(req, res, url, { send, readJson, rooms, port: PORT })) return;
 
     // Liveness probe used by the phone-side troubleshooter (public/diag.html)
     // to test whether a given LAN address is reachable. Token-agnostic and
@@ -535,6 +540,9 @@ server.on('error', (err) => {
   }
   throw err;
 });
+
+// Restore any persisted ClickUp connection before we start accepting requests.
+await initClickup();
 
 server.listen(PORT, HOST, () => {
   const cands = lanCandidates();

@@ -5,5 +5,8 @@ node_modules/
 *.log
 *.tgz
 
+# ClickUp OAuth app credentials — local only, never commit.
+clickup-oauth.json
+
 # Unrelated local scratch tooling — not part of this package.
 analytics_debug_bridge.py
