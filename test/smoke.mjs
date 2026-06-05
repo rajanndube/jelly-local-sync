@@ -11,7 +11,11 @@ import { fileURLToPath } from 'node:url';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const SERVER = path.join(__dirname, '..', 'server.mjs');
 const PORT = 7788;
-const BASE = `http://localhost:${PORT}`;
+// Use 127.0.0.1, not "localhost": on Node 18 fetch resolves "localhost" to IPv6
+// ::1 first and does NOT fall back to IPv4 (autoSelectFamily defaults to false
+// before Node 20), so it never reaches a 127.0.0.1-bound server. Matching the
+// literal bound host dodges the whole DNS dance and works on every version.
+const BASE = `http://127.0.0.1:${PORT}`;
 
 let passed = 0;
 function ok(cond, msg) {
