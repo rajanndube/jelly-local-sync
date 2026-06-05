@@ -99,13 +99,51 @@ function touchDevice(room, key, body, now) {
   return device;
 }
 
-function lanIp() {
-  for (const ifs of Object.values(networkInterfaces())) {
+// Rank candidate LAN IPv4 addresses so the QR (and the paste-URL) advertise an
+// address the phone can actually reach. The naive "first non-internal IPv4"
+// loses on machines where a VPN tunnel (utun/tun/ppp/wg), a Docker bridge
+// (172.17.x), or a VM host-only adapter (vboxnet/vmnet) is enumerated *before*
+// the real Wi-Fi/Ethernet interface — the QR then encodes a dead address and
+// scanning silently fails. We score every candidate by interface name + address
+// range and return them best-first; the page receives the full ranked list so
+// the user can switch if the auto-pick is still wrong on their network.
+const VIRTUAL_IFACE_RE = /^(utun|tun|tap|ppp|ipsec|wg|gpd|docker|veth|br-|bridge|vboxnet|vmnet|vmware|vnic|virbr|llw|awdl|gif|stf|anpi|ap\d)/i;
+const PHYSICAL_IFACE_RE = /^(en|eth|wlan|wlp|enp|eno|wl|wifi)/i;
+
+function scoreCandidate(name, address) {
+  let score = 0;
+  if (PHYSICAL_IFACE_RE.test(name)) score += 100;
+  if (VIRTUAL_IFACE_RE.test(name)) score -= 200;
+  // Address range — phones share one of these private ranges with the laptop,
+  // in rough order of how commonly a phone/laptop network uses them.
+  if (address.startsWith('192.168.')) score += 50;
+  else if (/^10\./.test(address)) score += 40;
+  else if (/^172\.(1[6-9]|2\d|3[01])\./.test(address)) {
+    score += 30;
+    if (address.startsWith('172.17.')) score -= 60; // Docker's default bridge subnet
+  } else if (address.startsWith('169.254.')) score -= 100; // link-local, unroutable
+  else score -= 50; // public-ish / unexpected — almost never the shared LAN
+  return score;
+}
+
+// All non-internal IPv4 candidates, best-first. Stable order within equal score
+// preserves OS enumeration so the result is deterministic.
+function lanCandidates() {
+  const out = [];
+  for (const [name, ifs] of Object.entries(networkInterfaces())) {
     for (const i of ifs ?? []) {
-      if (i.family === 'IPv4' && !i.internal) return i.address;
+      if (i.family !== 'IPv4' || i.internal) continue;
+      out.push({ name, address: i.address, score: scoreCandidate(name, i.address) });
     }
   }
-  return null;
+  return out
+    .map((c, i) => ({ ...c, order: i }))
+    .sort((a, b) => b.score - a.score || a.order - b.order)
+    .map(({ name, address }) => ({ name, address }));
+}
+
+function lanIp() {
+  return lanCandidates()[0]?.address ?? null;
 }
 
 const CORS = {
@@ -204,11 +242,18 @@ const server = http.createServer(async (req, res) => {
       const token = newToken();
       getRoom(token, true);
       const html = await readFile(path.join(__dirname, 'public', 'index.html'), 'utf-8');
-      const lan = lanIp();
+      const cands = lanCandidates();
+      const lan = cands[0]?.address ?? null;
       const filled = html
         .replaceAll('__TOKEN__', token)
         .replaceAll('__PORT__', String(PORT))
-        .replaceAll('__LAN_IP__', lan ?? '');
+        .replaceAll('__HOST__', HOST)
+        .replaceAll('__LAN_IP__', lan ?? '')
+        // JSON array literal injected into a JS context — ranked candidates,
+        // best first, each `{ip, iface}`. Lets the page show an explicit
+        // address picker (with interface names) when the auto-pick can't be
+        // reached by the phone.
+        .replaceAll('__LAN_IPS__', JSON.stringify(cands.map((c) => ({ ip: c.address, iface: c.name }))));
       return send(res, 200, filled, {
         'content-type': 'text/html; charset=utf-8',
         'cache-control': 'no-store',
@@ -224,6 +269,34 @@ const server = http.createServer(async (req, res) => {
       return send(res, 200, file, {
         'content-type': STATIC_ASSETS[m],
         'cache-control': 'public, max-age=3600',
+      });
+    }
+
+    // Liveness probe used by the phone-side troubleshooter (public/diag.html)
+    // to test whether a given LAN address is reachable. Token-agnostic and
+    // tiny — the phone fetches http://<candidate-ip>:<port>/ping for each
+    // detected interface; CORS (set by send()) lets it probe cross-origin.
+    if (m === '/ping' && req.method === 'GET') {
+      return send(res, 200, { ok: true, serverNow: Date.now() });
+    }
+
+    // Phone-side diagnostic page. Opened by scanning the QR the dashboard's
+    // troubleshooter shows. Templated with the token (so it can report back),
+    // the port, and the ranked candidate addresses to probe. Whichever address
+    // the phone loaded this page from is, by definition, reachable — the page
+    // then probes the rest and POSTs results to /r/:token/diag.
+    if (m === '/diag' && req.method === 'GET') {
+      const token = (url.searchParams.get('t') ?? '').replace(/[^a-f0-9]/g, '');
+      const cands = lanCandidates();
+      const diag = await readFile(path.join(__dirname, 'public', 'diag.html'), 'utf-8');
+      const filled = diag
+        .replaceAll('__TOKEN__', token)
+        .replaceAll('__PORT__', String(PORT))
+        .replaceAll('__LOADED_FROM__', req.headers.host ?? '')
+        .replaceAll('__CANDIDATES__', JSON.stringify(cands.map((c) => ({ ip: c.address, iface: c.name }))));
+      return send(res, 200, filled, {
+        'content-type': 'text/html; charset=utf-8',
+        'cache-control': 'no-store',
       });
     }
 
@@ -277,6 +350,18 @@ const server = http.createServer(async (req, res) => {
       const now = Date.now();
       const device = touchDevice(room, clientKey(req), body, now);
       broadcast(room, 'device', { device, serverNow: now });
+      return send(res, 200, { ok: true });
+    }
+
+    // Diagnostic report relay. The phone-side /diag page POSTs which candidate
+    // addresses it could reach; we relay it to the dashboard over SSE (the only
+    // path between the two — they're different clients). Body:
+    //   { loadedFrom, results: [{ip, iface, ok, ms}], ua }
+    // clientIp is the source IP the report arrived on — the address the phone
+    // actually used to reach us, which the dashboard can cross-check.
+    if (rest === '/diag' && req.method === 'POST') {
+      const report = (await readJson(req)) ?? {};
+      broadcast(room, 'diag', { report, clientIp: clientKey(req), serverNow: Date.now() });
       return send(res, 200, { ok: true });
     }
 
@@ -434,13 +519,17 @@ const server = http.createServer(async (req, res) => {
 });
 
 server.listen(PORT, HOST, () => {
-  const ip = lanIp();
+  const cands = lanCandidates();
+  const [primary, ...alts] = cands;
   const lines = [
     '',
     '  Jelly Local Sync',
     '  ────────────────',
     `  Open in browser:  http://localhost:${PORT}`,
-    ip ? `                    http://${ip}:${PORT}  (LAN — for iOS over Wi-Fi)` : '',
+    primary ? `                    http://${primary.address}:${PORT}  (LAN — for iOS over Wi-Fi)` : '',
+    // Show the runners-up so a user whose phone can't reach the auto-picked
+    // address can spot the right interface without guessing.
+    ...alts.map((c) => `                    http://${c.address}:${PORT}  (also detected: ${c.name})`),
     '',
     '  The page shows a per-session URL — paste that into the Jelly SDK',
     '  endpoint setting on your device. Refresh the page for a fresh',

@@ -94,6 +94,39 @@ try {
   const qrRes = await fetch(`${BASE}/qrcode.js`);
   ok(qrRes.status === 200, 'GET /qrcode.js returns 200');
 
+  // Troubleshooter: liveness probe used by the phone-side /diag page.
+  const pingRes = await fetch(`${BASE}/ping`);
+  ok(pingRes.status === 200, 'GET /ping returns 200');
+  const ping = await pingRes.json();
+  ok(ping.ok === true && typeof ping.serverNow === 'number', 'GET /ping returns {ok, serverNow}');
+
+  // Phone-side probe page is served and templated with the token from ?t=.
+  const diagRes = await fetch(`${BASE}/diag?t=${token}`);
+  ok(diagRes.status === 200, 'GET /diag returns 200');
+  const diag = await diagRes.text();
+  ok(diag.includes(`var TOKEN = '${token}'`), 'GET /diag templates the token');
+  ok(diag.includes('var CANDIDATES = ['), 'GET /diag templates the candidate list');
+
+  // Diagnostic report relay: POST is accepted and broadcast over SSE. Open the
+  // stream first, post a report, then assert a `diag` event arrives.
+  const es = await fetch(`${BASE}/r/${token}/events`);
+  const reader = es.body.getReader();
+  const decoder = new TextDecoder();
+  await fetch(`${BASE}/r/${token}/diag`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ loadedFrom: '10.0.0.5:7788', results: [{ ip: '10.0.0.5', iface: 'en0', ok: true, ms: 9 }], ua: 'smoke' }),
+  });
+  let buf = '';
+  for (let i = 0; i < 20 && !buf.includes('event: diag'); i++) {
+    const { value, done } = await reader.read();
+    if (done) break;
+    buf += decoder.decode(value, { stream: true });
+  }
+  await reader.cancel();
+  ok(buf.includes('event: diag'), 'POST /diag broadcasts a diag SSE event');
+  ok(buf.includes('"loadedFrom":"10.0.0.5:7788"'), 'diag SSE carries the phone report');
+
   console.log(`\n${passed} checks passed.`);
 } catch (err) {
   failed = true;

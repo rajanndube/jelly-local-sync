@@ -6,6 +6,37 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.2.0] — 2026-06-05
+
+### Added
+- **Connection troubleshooter** — a sticky "Troubleshoot" button in the left rail
+  opens a two-sided connection diagnostic. Laptop-side self-checks cover the LAN
+  address, server binding (`HOST`), VPN/virtual-interface noise, SSE health, and
+  self-reachability. A phone-side probe (QR → new `/diag` page) then tests every
+  detected address from the phone and reports back which ones it can actually
+  reach, auto-selecting the working one. Things the laptop can't observe (phone
+  Wi-Fi state, MDM policy, Android cleartext) are shown as guidance, not checks.
+- Phone-side reachability probe page (`public/diag.html`) and supporting
+  endpoints: `GET /ping` (liveness), `GET /diag` (templated probe page), and
+  `POST /r/:token/diag` (relays the phone's report to the dashboard over a new
+  `diag` SSE event).
+- **Address picker** under the connect QR when more than one network interface is
+  detected — one selectable row per address, labelled with its interface;
+  selecting one re-encodes every QR and LAN URL live.
+
+### Changed
+- LAN address detection now **ranks** all candidate interfaces (physical
+  Wi-Fi/Ethernet and private 192.168 / 10 / 172 ranges preferred; VPN tunnels,
+  Docker bridges, VM adapters, and link-local deprioritised) instead of returning
+  the first non-internal IPv4. The dashboard and the startup banner surface the
+  full ranked list.
+
+### Fixed
+- The QR could encode an unreachable VPN/virtual-adapter address on machines
+  where such an interface enumerated before the real Wi-Fi/Ethernet one — the
+  "works on my machine, fails everywhere else" pairing failure. The ranking,
+  address picker, and phone-side probe together resolve it.
+
 ## [0.1.1] — 2026-06-05
 
 ### Changed
@@ -32,6 +63,7 @@ Initial public release.
 - Per-device attribution by client IP, multi-device support over one URL.
 - Request body caps (256 KB JSON, 25 MB image) returning `413` on overflow.
 
-[Unreleased]: https://github.com/rajanndube/jelly-local-sync/compare/v0.1.1...HEAD
+[Unreleased]: https://github.com/rajanndube/jelly-local-sync/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/rajanndube/jelly-local-sync/compare/v0.1.1...v0.2.0
 [0.1.1]: https://github.com/rajanndube/jelly-local-sync/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/rajanndube/jelly-local-sync/releases/tag/v0.1.0

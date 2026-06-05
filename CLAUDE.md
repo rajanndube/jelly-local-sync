@@ -25,8 +25,8 @@ PORT=8080 HOST=127.0.0.1 node server.mjs   # bind strict-localhost
 
 Then open `http://localhost:7777` in a browser. The page issues a fresh token on every `GET /` (refresh rotates). The layout is a persistent **left rail + main column**:
 
-- **Left rail** — brand + server-connection dot; a live **Devices** list (one row per connected device: colour swatch, label, live/stale dot, per-device annotation tally; click to filter the feed); and a **Connect a device** button (shown once ≥1 device is paired).
-- **Main column** — before any device pairs, a centred **"Scan to connect" hero** (the QR is the hero, paste-URL is the quiet fallback, per-platform setup steps tuck behind a disclosure). Once a device pairs, this flips to the **annotation feed** (newest first) with device **filter chips**, a per-card device tag, per-card Copy/Delete, and bulk Delete-all.
+- **Left rail** — brand + server-connection dot; a live **Devices** list (one row per connected device: colour swatch, label, live/stale dot, per-device annotation tally; click to filter the feed); and a sticky **rail footer** pinned bottom-left holding **Connect a device** (shown once ≥1 device is paired) and **Troubleshoot** (always shown — opens the connection diagnostic, see below).
+- **Main column** — before any device pairs, a centred **"Scan to connect" hero** (the QR is the hero, paste-URL is the quiet fallback, per-platform setup steps tuck behind a disclosure). When more than one LAN interface is detected, a prominent **address picker** sits under the QR (one selectable row per address, labelled with its interface) so the user can switch to the one their phone is on. Once a device pairs, this flips to the **annotation feed** (newest first) with device **filter chips**, a per-card device tag, per-card Copy/Delete, and bulk Delete-all.
 
 Connecting more devices later opens the same connect panel in a modal. **Multiple devices can point at one URL simultaneously** — each is its own row, and its annotations carry its device tag.
 
@@ -34,8 +34,9 @@ No `npm install` step. Zero runtime deps.
 
 ## Architecture (key files)
 
-- `server.mjs` — single-file Node ESM HTTP server (~340 lines). Built-in `http`, `crypto`, `fs`, `os`. Per-token rooms held entirely in memory.
-- `public/index.html` — single-page app (HTML + CSS + JS inline). Vanilla JS, no framework. Left rail + main column shell. Connects to SSE, tracks a `Map` of devices, renders QR via the vendored library, handles copy/clipboard/modals.
+- `server.mjs` — single-file Node ESM HTTP server. Built-in `http`, `crypto`, `fs`, `os`. Per-token rooms held entirely in memory. `lanCandidates()` ranks every non-internal IPv4 by interface name + address range (physical `en*`/`eth*`/`wlan*` and private 192.168/10/172 ranges win; VPN/Docker/VM adapters and link-local lose) so the advertised QR address isn't a dead VPN/virtual one — it returns the full ranked list, not just the top pick.
+- `public/index.html` — single-page app (HTML + CSS + JS inline). Vanilla JS, no framework. Left rail + main column shell. Connects to SSE, tracks a `Map` of devices, renders QR via the vendored library (`renderQR` is the generic rasteriser; `drawQR` wraps it for the connect QR), handles copy/clipboard/modals, the address picker, and the troubleshooter.
+- `public/diag.html` — tiny **phone-side reachability probe** page, served (templated) at `GET /diag`. The troubleshooter's QR points the phone here; it fetches `/ping` on every candidate address, shows the phone a pass/fail list, and POSTs the results to `/r/:token/diag` to be relayed to the dashboard. Zero deps, self-contained, no QR library.
 - `public/qrcode.js` — **VENDORED** Kazuhiko Arase qrcode-generator (~2300 lines, MIT, served as `/qrcode.js`). **Do not replace with a hand-rolled implementation** — we tried once and shipped subtly broken QRs (format-info placement bug). If the vendored file needs updating, copy fresh from `node_modules/qrcode-generator/dist/qrcode.js` (don't add the npm dep — copy the file).
 - `package.json` — name, bin field, zero dependencies.
 
@@ -47,7 +48,7 @@ All API endpoints live under `/r/:token/...`. The token is 64-bit random hex gen
 |--------|---------------------------------------|-------|
 | GET    | `/`                                   | Mints a fresh token, serves the templated page (`__TOKEN__`, `__PORT__`, `__LAN_IP__` placeholders replaced). `cache-control: no-store` so refresh always rotates. |
 | GET    | `/qrcode.js`                          | Vendored QR library. `cache-control: public, max-age=3600`. |
-| GET    | `/r/:token/events`                    | SSE stream. Replays all known devices + existing annotations on connect. Event types: `hello`, `device`, `annotation`, `image`, `delete`, `clear`. 25s keepalive comments. |
+| GET    | `/r/:token/events`                    | SSE stream. Replays all known devices + existing annotations on connect. Event types: `hello`, `device`, `annotation`, `image`, `delete`, `clear`, `diag`. 25s keepalive comments. |
 | POST   | `/r/:token/hello`                     | Device identity + heartbeat. Body `{platform, model, manufacturer, osVersion, appName, sdkVersion}`. Upserts a device in `room.devices` **keyed by client IP** (the only per-device discriminator on the wire — the body has no device id), refreshes its `lastHelloMs`, broadcasts a `device` SSE event. SDK sends every 12s. |
 | GET    | `/r/:token/sessions`                  | Lists sessions in this room. |
 | POST   | `/r/:token/sessions`                  | Creates a session, returns `{id, url, status: "active", createdAt}`. **`status` is REQUIRED** in the response — Android's `Session` model marks it non-nullable and decode throws `MissingFieldException` if absent. |
@@ -59,6 +60,9 @@ All API endpoints live under `/r/:token/...`. The token is 64-bit random hex gen
 | POST   | `/r/:token/sessions/:sid/action`      | Action ack returning `{success, annotationCount, delivered: {sseListeners, webhooks, total}}`. |
 | POST   | `/r/:token/annotations/:aid/image`    | Binary screenshot upload. Body = raw image bytes, `Content-Type: image/png` or `image/webp`. Best-effort from the SDK side. |
 | GET    | `/r/:token/annotations/:aid/image`    | Image bytes for `<img src>`. |
+| GET    | `/ping`                               | Token-agnostic liveness probe → `{ok, serverNow}`. Used by the phone-side `/diag` page to test whether a candidate LAN address is reachable (fetched cross-origin per interface; CORS allows it). |
+| GET    | `/diag`                               | Phone-side reachability-probe page (`public/diag.html`), templated with `__TOKEN__` (from `?t=`), `__PORT__`, `__LOADED_FROM__` (the host the request arrived on), and `__CANDIDATES__` (ranked `{ip, iface}[]`). `cache-control: no-store`. |
+| POST   | `/r/:token/diag`                      | Diagnostic report relay. The `/diag` page POSTs `{loadedFrom, results: [{ip, iface, ok, ms}], ua}`; the server broadcasts a `diag` SSE event (the only path between phone and dashboard — they're different clients). Stores nothing. |
 
 ## Per-token rooms
 
@@ -80,7 +84,9 @@ Each `GET /` mints a new token and a new empty room. Old rooms persist in memory
 
 - **Brand + server dot** — top of the left rail. The dot is green when the SSE stream is connected, amber-pulsing while reconnecting.
 - **Devices list** (`renderDevices`) — one `button.device-row` per device: colour swatch (stable palette colour assigned in arrival order via `colorFor`), label (`deviceLabel`), a live/stale dot driven by `lastSeenLocalMs`, and a per-device annotation tally. Click to filter the feed. Empty state is the simplified "Scan your QR code" hint. Per-second `tickDeviceStatuses()` updates the status text **in place** (no rebuild, so the live-dot pulse doesn't restart).
-- **Connect panel** (`buildConnectPanel` + `CP_HTML`) — the QR-first "point your phone here" experience. Rendered as the **main-column hero** when no device has paired (`syncMainView`), and into a **modal** via the rail's "Connect a device" button afterwards. QR via `drawQR`; when no LAN IP, a greyed placeholder is shown and paste-URL becomes primary. Per-platform steps are a nested `<details>`.
+- **Connect panel** (`buildConnectPanel` + `CP_HTML`) — the QR-first "point your phone here" experience. Rendered as the **main-column hero** when no device has paired (`syncMainView`), and into a **modal** via the rail's "Connect a device" button afterwards. QR via `drawQR`; when no LAN IP, a greyed placeholder is shown and paste-URL becomes primary. Per-platform steps and a Troubleshooting accordion are two views of a shared slide-out (`.cp-view`, toggled by the two `.cp-toggle` buttons).
+- **Address picker** (`.addr-picker`, built in `buildConnectPanel`) — shown under the QR only when `LAN_IPS.length > 1`. One selectable `.addr-chip` per candidate (IP + interface name, top one tagged "recommended"). Selecting calls `applyLanIp(ip)`, the shared helper that re-encodes **every** connect QR in the DOM, updates the LAN-URL fields, and moves the active chip. `LAN_IPS` is the server's ranked `{ip, iface}[]`.
+- **Troubleshooter** (`buildTroubleshooter` + `TS_HTML`, opened from the rail's **Troubleshoot** button) — a two-sided connection diagnostic in its own modal. "Run checks" fires `tsRunSelfChecks` (laptop-observable: LAN address, server binding via `BOUND_HOST`, VPN/virtual-interface noise, SSE up, devices connected, and an async self-reachability `fetch` to `/ping`) and `tsStartPhoneProbe` (renders a QR to `/diag`, then waits on the `onDiagReport` hook). When the phone reports, `tsRenderProbeResults` lists which addresses it reached, auto-selects the first reachable via `applyLanIp`, and offers per-row "use this". A 35s timeout with no report ⇒ the "phone can't reach the laptop at all" conclusion (firewall / client isolation / MDM). The laptop **cannot** observe phone Wi-Fi state, MDM policy, or the Android cleartext flag — those are presented as guidance, never as green/red checks.
 - **Filter chips** (`renderFilters`) — "All devices" + one chip per device, shown only when ≥2 devices exist.
 - **Annotation feed** (`render` / `renderCard`) — newest first, filtered by `filterKey`. Each card leads with a device tag (coloured dot + label + platform), then image, comment, intent/severity/kind badges, metadata, and per-card actions (Copy markdown/comment/image, Open, Delete). Only **genuinely new** cards animate (tracked via `renderedIds`) so a re-render on filter/update doesn't replay the whole list. "Delete all" sits in the feed header.
 - **Generic confirmation modal** — Promise-based `showConfirm({title, body, confirmText, danger})`. Cancel auto-focuses on `danger: true`.
@@ -95,6 +101,7 @@ JS lives at the bottom of `index.html` inside an IIFE — no modules, no build s
 - `image` — sent after an image upload. Payload `{id}`. The page re-renders only the affected card and updates its `<img src>`.
 - `delete` — single removal. Payload `{id}`.
 - `clear` — bulk removal. Payload `{count}`. Page wipes all local state.
+- `diag` — phone-side reachability report relayed from `public/diag.html`. Payload `{report: {loadedFrom, results: [{ip, iface, ok, ms}], ua}, clientIp, serverNow}`. Transient (never replayed). Only the open troubleshooter consumes it, via the `onDiagReport` hook; ignored otherwise.
 
 ## Platform caveats
 
@@ -141,4 +148,4 @@ The only contract this server enforces is the `Session` response shape (must inc
 
 ## Build / publish
 
-There is no build step. `node server.mjs` runs as-is. To make a release, just push the repo or distribute the three files (`server.mjs`, `public/index.html`, `public/qrcode.js`) along with `package.json`. The `bin` field in `package.json` exposes the binary name `jelly-local-sync` for `npx`.
+There is no build step. `node server.mjs` runs as-is. To make a release, just push the repo or distribute the four files (`server.mjs`, `public/index.html`, `public/diag.html`, `public/qrcode.js`) along with `package.json`. The `bin` field in `package.json` exposes the binary name `jelly-local-sync` for `npx`.

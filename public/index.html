@@ -116,12 +116,30 @@
 
   /* ── Sidebar "Connect a device" button (shown once ≥1 device paired) ── */
   .connect-btn {
-    margin-top: auto; width: 100%; display: flex; align-items: center; justify-content: center; gap: 8px;
+    width: 100%; display: flex; align-items: center; justify-content: center; gap: 8px;
     background: var(--surface-2); border: 1px solid var(--border); border-radius: 10px; padding: 11px 14px;
-    color: var(--text); font-size: 13px; font-weight: 500;
+    color: var(--text); font-size: 13px; font-weight: 500; cursor: pointer;
   }
   .connect-btn[hidden] { display: none; }
   .connect-btn svg { opacity: 0.7; }
+
+  /* Sticky rail footer — pinned bottom-left, holds Connect + Troubleshoot so
+     they stay reachable while the device list scrolls. */
+  .rail-footer {
+    margin-top: auto; position: sticky; bottom: -24px; z-index: 2;
+    display: flex; flex-direction: column; gap: 8px;
+    padding: 14px 0 0; background: var(--surface);
+  }
+  .troubleshoot-btn {
+    width: 100%; display: flex; align-items: center; justify-content: center; gap: 8px;
+    background: transparent; border: 1px solid var(--border); border-radius: 10px; padding: 9px 14px;
+    color: var(--text-dim); font-size: 12.5px; cursor: pointer;
+    transition: color 0.12s ease, background 0.12s ease, border-color 0.12s ease;
+  }
+  .troubleshoot-btn svg { opacity: 0.75; }
+  @media (hover: hover) and (pointer: fine) {
+    .troubleshoot-btn:hover { color: var(--text); background: var(--surface-hi); border-color: var(--border-hi); }
+  }
 
   /* ── Connect panel — shared by the empty-state hero and the modal ───── */
   .field-label { font-size: 11px; color: var(--text-mute); margin: 0 0 6px; }
@@ -139,15 +157,15 @@
   .connect-shell { display: flex; align-items: flex-start; }
   .cp { width: 340px; flex-shrink: 0; display: flex; flex-direction: column; align-items: center; text-align: center; }
 
-  .cp-help-toggle {
-    display: inline-flex; align-items: center; gap: 7px; margin-top: 18px;
-    background: transparent; border: 0; color: var(--text-dim); font-size: 12.5px;
+  .cp-toggle {
+    display: inline-flex; align-items: center; gap: 7px;
+    background: transparent; border: 0; color: var(--text-dim); font-size: 12.5px; cursor: pointer;
     padding: 6px 10px; border-radius: 8px; transition: color 0.12s ease, background 0.12s ease;
   }
-  .cp-help-toggle .chev { transition: transform 0.25s var(--ease-out); opacity: 0.7; }
-  .connect-shell.expanded .cp-help-toggle { color: var(--text); background: var(--surface-hi); }
-  .connect-shell.expanded .cp-help-toggle .chev { transform: rotate(90deg); }
-  @media (hover: hover) and (pointer: fine) { .cp-help-toggle:hover { color: var(--text); background: var(--surface-hi); } }
+  .cp-toggle .chev { transition: transform 0.25s var(--ease-out); opacity: 0.7; }
+  .cp-toggle.active { color: var(--text); background: var(--surface-hi); }
+  .cp-toggle.active .chev { transform: rotate(90deg); }
+  @media (hover: hover) and (pointer: fine) { .cp-toggle:hover { color: var(--text); background: var(--surface-hi); } }
 
   .cp-setup { width: 0; flex-shrink: 0; overflow: hidden; opacity: 0; transition: width 0.32s var(--ease-out), opacity 0.22s ease; }
   .connect-shell.expanded .cp-setup { width: 340px; opacity: 1; }
@@ -158,6 +176,25 @@
   }
   .connect-shell.expanded .cp-setup-inner { transform: translateX(0); }
   .cp-setup-title { font-size: 13px; font-weight: 600; margin: 0 0 14px; color: var(--text); letter-spacing: -0.01em; }
+  /* The slide-out hosts two views (setup · troubleshooting); only one shows. */
+  .cp-view { display: none; }
+  .cp-view.active { display: block; }
+
+  /* Troubleshooting accordion */
+  .trouble-q { border-top: 1px solid var(--border); }
+  .trouble-q:first-of-type { border-top: 0; }
+  .trouble-q > summary {
+    list-style: none; cursor: pointer; padding: 10px 0; display: flex; gap: 8px; align-items: flex-start;
+    font-size: 12.5px; font-weight: 600; color: var(--text); line-height: 1.4;
+  }
+  .trouble-q > summary::-webkit-details-marker { display: none; }
+  .trouble-q > summary .tq-chev { margin-left: auto; flex-shrink: 0; transition: transform 0.2s var(--ease-out); opacity: 0.6; }
+  .trouble-q[open] > summary .tq-chev { transform: rotate(90deg); }
+  .trouble-body { padding: 0 0 12px; font-size: 12px; color: var(--text-dim); line-height: 1.55; }
+  .trouble-body p { margin: 0 0 8px; }
+  .trouble-body p:last-child { margin-bottom: 0; }
+  .trouble-body code { background: var(--surface-hi); padding: 1px 5px; border-radius: 4px; font: 11px ui-monospace, SFMono-Regular, Menlo, monospace; color: var(--text); }
+  .trouble-body b { color: var(--text); font-weight: 600; }
 
   .cp-qr { position: relative; width: 220px; height: 220px; display: flex; align-items: center; justify-content: center; margin-bottom: 20px; }
   .cp-qr canvas {
@@ -186,6 +223,31 @@
   .cp-or::before, .cp-or::after { content: ""; flex: 1; height: 1px; background: var(--border); }
   .cp-fields { width: 100%; max-width: 380px; text-align: left; }
   .cp-fields .lan-row { margin-top: 12px; }
+
+  /* Address picker — prominent when >1 interface was detected, so the user can
+     pick the network their phone is actually on instead of the auto-guess. */
+  .addr-picker { width: 100%; max-width: 380px; margin: 2px 0 20px; padding: 13px 14px 12px;
+    background: var(--surface-2); border: 1px solid var(--accent); border-radius: 11px;
+    text-align: left; box-shadow: 0 0 0 3px var(--accent-soft); }
+  .addr-picker[hidden] { display: none; }
+  .addr-picker-head { display: flex; align-items: center; gap: 7px; margin: 0 0 4px; font-size: 12.5px; font-weight: 600; color: var(--text); }
+  .addr-picker-head svg { color: var(--accent-hi); flex-shrink: 0; }
+  .addr-picker-sub { margin: 0 0 11px; font-size: 11.5px; color: var(--text-dim); line-height: 1.45; }
+  .addr-list { display: flex; flex-direction: column; gap: 6px; }
+  .addr-chip { display: flex; align-items: center; gap: 10px; width: 100%; text-align: left;
+    background: var(--surface); border: 1px solid var(--border); border-radius: 8px;
+    padding: 9px 12px; color: var(--text-dim); font: inherit; cursor: pointer;
+    transition: border-color 0.14s ease, background 0.14s ease, color 0.14s ease; }
+  .addr-chip:hover { border-color: var(--border-hi); color: var(--text); }
+  .addr-chip.active { border-color: var(--accent); background: var(--accent-soft); color: var(--text); }
+  .addr-chip .radio { width: 15px; height: 15px; border-radius: 50%; border: 2px solid var(--border-hi); flex-shrink: 0; transition: border-color 0.14s ease; }
+  .addr-chip.active .radio { border-color: var(--accent); background: var(--accent); box-shadow: inset 0 0 0 3px var(--surface); }
+  .addr-chip .ip { flex: 1; font: 13px ui-monospace, SFMono-Regular, Menlo, monospace; font-variant-numeric: tabular-nums; letter-spacing: -0.01em; }
+  .addr-chip .iface { font-size: 10.5px; color: var(--text-mute); text-transform: lowercase; }
+  .addr-chip.active .iface { color: var(--accent-hi); }
+
+  /* Two slide-out toggles (Setup help · Troubleshooting) share one panel. */
+  .cp-toggles { display: flex; gap: 6px; margin-top: 18px; }
 
   /* Hero: connect panel takes the main column when no device is paired yet. */
   .connect-hero { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: calc(100vh - 120px); padding: 24px 0; animation: jly-fade 0.25s ease both; }
@@ -321,6 +383,52 @@
     .btn-ghost:hover { background: var(--surface-hi); border-color: var(--border-hi); }
   }
 
+  /* ── Troubleshooter ─────────────────────────────────────────────────── */
+  .ts-modal .modal-card { max-width: min(94vw, 560px); max-height: 88vh; overflow-y: auto; }
+  .ts-head { display: flex; align-items: flex-start; gap: 10px; margin-bottom: 4px; }
+  .ts-head .modal-title { flex: 1; }
+  .ts-intro { font-size: 13px; color: var(--text-dim); margin: 0 0 16px; line-height: 1.5; }
+  .ts-run { width: 100%; justify-content: center; display: flex; align-items: center; gap: 8px; margin-bottom: 18px; }
+  .ts-section-label { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-dim); margin: 18px 0 9px; }
+
+  .ts-checks { display: flex; flex-direction: column; gap: 7px; }
+  .ts-check { background: var(--surface-2); border: 1px solid var(--border); border-radius: 10px; padding: 11px 13px; }
+  .ts-check-row { display: flex; align-items: flex-start; gap: 10px; }
+  .ts-ico { width: 18px; height: 18px; flex-shrink: 0; margin-top: 1px; display: flex; align-items: center; justify-content: center; border-radius: 50%; font-size: 11px; font-weight: 700; }
+  .ts-ico.pending { border: 2px solid var(--border-hi); border-top-color: var(--accent); animation: jly-spin 0.7s linear infinite; }
+  .ts-ico.pass { background: var(--accent); color: #0b0b0d; }
+  .ts-ico.warn { background: var(--warn); color: #0b0b0d; }
+  .ts-ico.fail { background: var(--danger); color: #fff; }
+  .ts-ico.info { background: var(--surface-hi); color: var(--text-dim); }
+  @keyframes jly-spin { to { transform: rotate(360deg); } }
+  .ts-check .ts-label { flex: 1; font-size: 13px; font-weight: 500; color: var(--text); line-height: 1.4; }
+  .ts-check .ts-detail { margin: 5px 0 0 28px; font-size: 12px; color: var(--text-dim); line-height: 1.5; }
+  .ts-check .ts-fix { margin: 8px 0 0 28px; font-size: 12px; color: var(--text-dim); line-height: 1.55; padding: 9px 11px; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; }
+  .ts-check .ts-fix b { color: var(--text); font-weight: 600; }
+  .ts-check .ts-fix code { background: var(--surface-hi); padding: 1px 5px; border-radius: 4px; font: 11px ui-monospace, SFMono-Regular, Menlo, monospace; color: var(--text); }
+  .ts-check .ts-fix p { margin: 0 0 6px; }
+  .ts-check .ts-fix p:last-child { margin: 0; }
+
+  /* Phone-side probe block */
+  .ts-probe { margin-top: 8px; display: flex; gap: 16px; align-items: flex-start; background: var(--surface-2); border: 1px solid var(--border); border-radius: 11px; padding: 14px; }
+  .ts-probe-qr { width: 130px; height: 130px; flex-shrink: 0; background: #fff; border-radius: 9px; padding: 7px; box-sizing: border-box; }
+  .ts-probe-qr canvas { width: 100%; height: 100%; display: block; image-rendering: pixelated; }
+  .ts-probe-text { flex: 1; min-width: 0; }
+  .ts-probe-text h4 { margin: 0 0 5px; font-size: 13px; font-weight: 600; color: var(--text); }
+  .ts-probe-text p { margin: 0; font-size: 12px; color: var(--text-dim); line-height: 1.5; }
+  .ts-probe-results { margin-top: 11px; display: flex; flex-direction: column; gap: 5px; }
+  .ts-probe-results[hidden] { display: none; }
+  .ts-pr { display: flex; align-items: center; gap: 8px; font-size: 12px; padding: 6px 9px; background: var(--surface); border: 1px solid var(--border); border-radius: 7px; }
+  .ts-pr .dot { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
+  .ts-pr.ok .dot { background: var(--accent); }
+  .ts-pr.bad .dot { background: var(--danger); }
+  .ts-pr .ip { flex: 1; font: 12px ui-monospace, SFMono-Regular, Menlo, monospace; color: var(--text); }
+  .ts-pr .verdict { font-size: 11px; font-weight: 600; }
+  .ts-pr.ok .verdict { color: var(--accent-hi); }
+  .ts-pr.bad .verdict { color: var(--danger); }
+  .ts-pr .pick { font-size: 11px; padding: 3px 8px; }
+  @media (max-width: 480px) { .ts-probe { flex-direction: column; align-items: center; text-align: center; } }
+
   /* On narrow screens there's no room to expand sideways — stack the setup
      pane below the scan/paste column instead. */
   @media (max-width: 760px) {
@@ -363,10 +471,16 @@
         <div id="device-list"></div>
       </div>
 
-      <button class="connect-btn" id="connect-btn" type="button" hidden>
-        <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 3v10M3 8h10"/></svg>
-        Connect a device
-      </button>
+      <div class="rail-footer">
+        <button class="connect-btn" id="connect-btn" type="button" hidden>
+          <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 3v10M3 8h10"/></svg>
+          Connect a device
+        </button>
+        <button class="troubleshoot-btn" id="troubleshoot-btn" type="button">
+          <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 1.5l6 3v4c0 3.5-2.4 5.6-6 6.5-3.6-.9-6-3-6-6.5v-4z"/><path d="M8 5.5v3"/><path d="M8 10.8v.01"/></svg>
+          Troubleshoot
+        </button>
+      </div>
     </aside>
 
     <!-- ── Main: the live annotation feed ── -->
@@ -400,6 +514,15 @@
     </div>
   </div>
 
+  <div id="troubleshoot-modal" class="modal-backdrop ts-modal" hidden>
+    <div class="modal-card" role="dialog" aria-modal="true" aria-label="Troubleshoot connection" style="position: relative;">
+      <button class="modal-close" id="troubleshoot-close" type="button" aria-label="Close">
+        <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 4l8 8M12 4l-8 8"/></svg>
+      </button>
+      <div id="troubleshoot-mount"></div>
+    </div>
+  </div>
+
   <div id="confirm-modal" class="modal-backdrop" hidden>
     <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="confirm-title" aria-describedby="confirm-body">
       <h3 class="modal-title" id="confirm-title">Are you sure?</h3>
@@ -416,12 +539,21 @@
 (() => {
   const TOKEN = '__TOKEN__';
   const PORT = '__PORT__';
+  const BOUND_HOST = '__HOST__';   // the host the server bound to (HOST env)
   const LAN_IP = '__LAN_IP__';
+  // Ranked candidate LAN addresses, best first (server-injected JS literal).
+  // Each is { ip, iface } — the interface name lets the address picker label
+  // each option so the user can tell Wi-Fi from a VPN/Docker adapter.
+  const LAN_IPS = __LAN_IPS__;
   const ORIGIN = location.origin;
   const BASE = ORIGIN + '/r/' + TOKEN;
 
   const endpointUrl = BASE;
-  const lanEndpoint = LAN_IP ? `http://${LAN_IP}:${PORT}/r/${TOKEN}` : '';
+  const lanEndpointFor = (ip) => (ip ? `http://${ip}:${PORT}/r/${TOKEN}` : '');
+  // Mutable: the address picker reassigns these so drawQR / the LAN-URL field /
+  // the copy button all follow the currently selected address.
+  let lanIpSel = LAN_IP || (LAN_IPS[0]?.ip ?? '');
+  let lanEndpoint = lanEndpointFor(lanIpSel);
 
   const $ = (id) => document.getElementById(id);
 
@@ -523,14 +655,16 @@
   //
   // The QR encodes the LAN URL — the only URL a phone camera can resolve
   // (localhost would mean "the phone itself"). Vendored qrcode-generator (MIT).
-  function drawQR(canvas) {
-    if (!lanEndpoint || typeof qrcode === 'undefined') return false;
+  // Generic QR rasteriser — encodes `text` onto `canvas`. Used for the main
+  // connect QR (lanEndpoint) and the troubleshooter's diagnostic QR.
+  function renderQR(canvas, text, scale = 5) {
+    if (!text || typeof qrcode === 'undefined') return false;
     try {
       const qr = qrcode(0, 'L');
-      qr.addData(lanEndpoint);
+      qr.addData(text);
       qr.make();
       const size = qr.getModuleCount();
-      const scale = 5, padding = 4;
+      const padding = 4;
       const px = (size + padding * 2) * scale;
       canvas.width = px;
       canvas.height = px;
@@ -546,6 +680,21 @@
       return true;
     } catch { return false; }
   }
+  function drawQR(canvas) { return renderQR(canvas, lanEndpoint, 5); }
+
+  // Switch the advertised LAN address everywhere at once — every connect panel
+  // currently in the DOM (hero + modal), its QR, LAN-URL field, and the active
+  // address-picker chip. Called by the picker and by the troubleshooter when a
+  // phone reports which address it can actually reach.
+  function applyLanIp(ip) {
+    lanIpSel = ip;
+    lanEndpoint = lanEndpointFor(ip);
+    document.querySelectorAll('.cp-qr canvas').forEach((c) => drawQR(c));
+    document.querySelectorAll('.cp-lan').forEach((i) => { i.value = lanEndpoint; });
+    document.querySelectorAll('.addr-chip').forEach((c) => {
+      c.classList.toggle('active', c.querySelector('.ip')?.textContent === ip);
+    });
+  }
 
   const CP_HTML = `
     <div class="connect-shell">
@@ -553,6 +702,14 @@
         <div class="cp-qr"><canvas aria-label="QR code to connect a device"></canvas><p class="qr-hint"></p></div>
         <h3 class="cp-title"></h3>
         <p class="cp-sub"></p>
+        <div class="addr-picker" hidden>
+          <p class="addr-picker-head">
+            <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 6.5a8 8 0 0 1 12 0"/><path d="M4.3 9a5 5 0 0 1 7.4 0"/><path d="M6.5 11.4a2 2 0 0 1 3 0"/><circle cx="8" cy="13.5" r="0.5" fill="currentColor"/></svg>
+            Phone won't connect? Pick its network
+          </p>
+          <p class="addr-picker-sub">Multiple networks detected. The QR points at the highlighted one — if your phone can't open it, choose the address on the same Wi-Fi as the phone.</p>
+          <div class="addr-list"></div>
+        </div>
         <div class="cp-or">or paste the URL</div>
         <div class="cp-fields">
           <p class="field-label">Endpoint URL</p>
@@ -568,15 +725,23 @@
             </div>
           </div>
         </div>
-        <button class="cp-help-toggle" type="button" aria-expanded="false">
-          <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="8" cy="8" r="6.5"/><path d="M6.2 6.1a1.8 1.8 0 0 1 3.5.6c0 1.2-1.8 1.5-1.8 2.5"/><path d="M8 11.6v.01"/></svg>
-          <span class="label">Setup help</span>
-          <svg class="chev" width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 4l4 4-4 4"/></svg>
-        </button>
+        <div class="cp-toggles">
+          <button class="cp-toggle cp-help-toggle" type="button" data-view="setup" aria-expanded="false">
+            <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="8" cy="8" r="6.5"/><path d="M6.2 6.1a1.8 1.8 0 0 1 3.5.6c0 1.2-1.8 1.5-1.8 2.5"/><path d="M8 11.6v.01"/></svg>
+            <span class="label">Setup help</span>
+            <svg class="chev" width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 4l4 4-4 4"/></svg>
+          </button>
+          <button class="cp-toggle cp-trouble-toggle" type="button" data-view="trouble" aria-expanded="false">
+            <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 1.5l6 3v4c0 3.5-2.4 5.6-6 6.5-3.6-.9-6-3-6-6.5v-4z"/><path d="M8 5.5v3"/><path d="M8 10.8v.01"/></svg>
+            <span class="label">Troubleshooting</span>
+            <svg class="chev" width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 4l4 4-4 4"/></svg>
+          </button>
+        </div>
         <p class="refresh-note">Refresh this page to start a fresh, isolated session — the URL rotates and the old one stops accepting writes.</p>
       </div>
       <div class="cp-setup" aria-hidden="true">
         <div class="cp-setup-inner">
+        <div class="cp-view" data-view="setup">
           <h4 class="cp-setup-title">Set up your device</h4>
           <div class="tabs" role="tablist">
             <button class="tab active" data-tab="android" type="button">Android</button>
@@ -609,6 +774,56 @@
             </ol>
           </div>
         </div>
+        <div class="cp-view" data-view="trouble">
+          <h4 class="cp-setup-title">Troubleshooting</h4>
+          <details class="trouble-q">
+            <summary>Phone scans the QR but nothing loads<svg class="tq-chev" width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 4l4 4-4 4"/></svg></summary>
+            <div class="trouble-body">
+              <p>The phone and this laptop must be on the <b>same Wi-Fi network</b>. The QR encodes a LAN address — if that address isn't reachable from the phone, scanning opens a dead link.</p>
+              <p>If more than one network was detected, use the <b>address picker</b> on this panel and choose the address that matches your phone's Wi-Fi IP (on the phone: <b>Settings → Wi-Fi → ⓘ</b>). VPN and Docker adapters get listed too, but a phone can't reach those.</p>
+            </div>
+          </details>
+          <details class="trouble-q">
+            <summary>Same Wi-Fi, still won't connect<svg class="tq-chev" width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 4l4 4-4 4"/></svg></summary>
+            <div class="trouble-body">
+              <p>A <b>firewall</b> is probably blocking the port. On macOS: <b>System Settings → Network → Firewall → Options</b> and allow incoming connections for <code>node</code>. On Windows: approve <b>Node.js</b> on <b>Private networks</b> in the Defender Firewall prompt.</p>
+              <p>Guest and corporate Wi-Fi often enable <b>client isolation</b>, which blocks phone-to-laptop traffic entirely. Use a personal hotspot, or pair an Android device over USB instead.</p>
+            </div>
+          </details>
+          <details class="trouble-q">
+            <summary>Android: "couldn't reach endpoint"<svg class="tq-chev" width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 4l4 4-4 4"/></svg></summary>
+            <div class="trouble-body">
+              <p>Android blocks plaintext <code>http://</code> by default. The debug build needs <code>usesCleartextTraffic="true"</code> in its manifest.</p>
+              <p>Or skip Wi-Fi entirely over USB: run <code>adb reverse tcp:${PORT} tcp:${PORT}</code>, then paste the <b>Endpoint URL</b> (the localhost one) rather than the LAN URL.</p>
+            </div>
+          </details>
+          <details class="trouble-q">
+            <summary>iOS won't connect<svg class="tq-chev" width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 4l4 4-4 4"/></svg></summary>
+            <div class="trouble-body">
+              <p>iOS is <b>Wi-Fi only</b> — there's no cable-mode pairing. Grant <b>Local Network</b> permission when iOS prompts.</p>
+              <p>MDM-managed devices that block local-network traffic can't pair, and there is no workaround on iOS.</p>
+            </div>
+          </details>
+          <details class="trouble-q">
+            <summary>Connected, but no annotations appear<svg class="tq-chev" width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 4l4 4-4 4"/></svg></summary>
+            <div class="trouble-body">
+              <p>Confirm <b>Sync</b> is toggled on in the toolbar and that you pasted <b>this page's exact URL</b>. Refreshing the page rotates the URL — re-pair the device after any refresh.</p>
+            </div>
+          </details>
+          <details class="trouble-q">
+            <summary>Page stuck on "Reconnecting…"<svg class="tq-chev" width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 4l4 4-4 4"/></svg></summary>
+            <div class="trouble-body">
+              <p>The server restarted. Refresh this page for a fresh session, then re-pair the device.</p>
+            </div>
+          </details>
+          <details class="trouble-q">
+            <summary>All devices show as one row<svg class="tq-chev" width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 4l4 4-4 4"/></svg></summary>
+            <div class="trouble-body">
+              <p>Those devices share one IP — usually several <code>adb reverse</code> tunnels to the same port, or devices behind NAT. Pair over Wi-Fi so each device gets its own address and its own row.</p>
+            </div>
+          </details>
+        </div>
+        </div>
       </div>
     </div>`;
 
@@ -637,18 +852,53 @@
     if (lanEndpoint && lanEndpoint !== endpointUrl) {
       shell.querySelector('.cp-lanrow').hidden = false;
       shell.querySelector('.cp-lan').value = lanEndpoint;
+      // Reads lanEndpoint at click time so it follows the IP switch below.
       shell.querySelector('.cp-copy-lan').addEventListener('click', (e) => copy(lanEndpoint, e.currentTarget));
     }
 
-    // Setup help expands the shell to the right rather than stacking downward.
-    const toggle = shell.querySelector('.cp-help-toggle');
+    // When more than one interface was detected, the auto-pick may not be the
+    // network the phone is on (VPN / Docker / VM adapters). Show an explicit,
+    // prominent picker — one selectable row per address, labelled with its
+    // interface — so the user can switch to the one their phone can reach.
+    // Selecting re-encodes the QR and updates the LAN URL field live.
+    const picker = shell.querySelector('.addr-picker');
+    if (hasQR && LAN_IPS.length > 1) {
+      const list = picker.querySelector('.addr-list');
+      LAN_IPS.forEach(({ ip, iface }, i) => {
+        const chip = document.createElement('button');
+        chip.type = 'button';
+        chip.className = 'addr-chip' + (ip === lanIpSel ? ' active' : '');
+        chip.innerHTML = `<span class="radio"></span><span class="ip"></span><span class="iface"></span>`;
+        chip.querySelector('.ip').textContent = ip;
+        chip.querySelector('.iface').textContent = i === 0 ? `${iface} · recommended` : iface;
+        chip.addEventListener('click', () => applyLanIp(ip));
+        list.appendChild(chip);
+      });
+      picker.hidden = false;
+    }
+
+    // Two slide-out toggles (Setup help · Troubleshooting) share one panel.
+    // Clicking a toggle opens its view; clicking the active one again collapses.
     const setup = shell.querySelector('.cp-setup');
-    toggle.addEventListener('click', () => {
-      const open = shell.classList.toggle('expanded');
-      toggle.setAttribute('aria-expanded', String(open));
+    const toggles = [...shell.querySelectorAll('.cp-toggle')];
+    const baseLabel = { setup: 'Setup help', trouble: 'Troubleshooting' };
+    let activeView = null;
+    const syncToggles = () => {
+      const open = activeView != null;
+      shell.classList.toggle('expanded', open);
       setup.setAttribute('aria-hidden', String(!open));
-      toggle.querySelector('.label').textContent = open ? 'Hide setup help' : 'Setup help';
-    });
+      shell.querySelectorAll('.cp-view').forEach((v) => v.classList.toggle('active', v.dataset.view === activeView));
+      toggles.forEach((t) => {
+        const on = t.dataset.view === activeView;
+        t.classList.toggle('active', on);
+        t.setAttribute('aria-expanded', String(on));
+        t.querySelector('.label').textContent = on ? `Hide ${baseLabel[t.dataset.view].toLowerCase()}` : baseLabel[t.dataset.view];
+      });
+    };
+    toggles.forEach((t) => t.addEventListener('click', () => {
+      activeView = activeView === t.dataset.view ? null : t.dataset.view;
+      syncToggles();
+    }));
 
     shell.querySelectorAll('.tab').forEach((btn) => btn.addEventListener('click', () => {
       const name = btn.dataset.tab;
@@ -690,6 +940,216 @@
   $('connect-btn').addEventListener('click', openConnectModal);
   $('connect-close').addEventListener('click', closeConnectModal);
   $('connect-modal').addEventListener('click', (e) => { if (e.target === $('connect-modal')) closeConnectModal(); });
+
+  // ── Troubleshooter ───────────────────────────────────────────────────────
+  // A two-sided connection diagnostic. The laptop self-checks what it can see
+  // (LAN address, server binding, VPN noise, SSE, self-reachability); then a
+  // QR points the phone at /diag, which probes every candidate address and
+  // reports back over SSE which ones it could reach — the definitive signal the
+  // laptop can't observe on its own. Whatever the phone reaches is auto-selected
+  // as the advertised address.
+  let onDiagReport = null;   // set while the troubleshooter waits for a phone report
+  let diagTimer = null;
+  const VIRTUAL_IFACE = /^(utun|tun|tap|ppp|ipsec|wg|gpd|docker|veth|br-|bridge|vboxnet|vmnet|vmware|vnic|virbr|llw|awdl|gif|stf|anpi|ap\d)/i;
+  const TS_ICON = { pass: '✓', warn: '!', fail: '✕', info: 'i', pending: '' };
+
+  const TS_HTML = `
+    <div class="ts-root">
+      <div class="ts-head"><h3 class="modal-title">Troubleshoot connection</h3></div>
+      <p class="ts-intro">Find why a device can't connect. We check this laptop's setup, then your phone tests whether it can actually reach the laptop — no app needed.</p>
+      <button class="primary ts-run" type="button">
+        <svg width="13" height="13" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M4 3.2v9.6a.5.5 0 0 0 .77.42l7.2-4.8a.5.5 0 0 0 0-.84l-7.2-4.8A.5.5 0 0 0 4 3.2z"/></svg>
+        <span class="ts-run-label">Run checks</span>
+      </button>
+      <div class="ts-results" hidden>
+        <div class="ts-section-label">This laptop</div>
+        <div class="ts-checks ts-self"></div>
+        <div class="ts-section-label">Your phone</div>
+        <div class="ts-probe">
+          <div class="ts-probe-qr"><canvas aria-label="QR to the phone connection test"></canvas></div>
+          <div class="ts-probe-text"><h4>Test from the phone</h4><p></p></div>
+        </div>
+        <div class="ts-probe-results" hidden></div>
+      </div>
+    </div>`;
+
+  function tsAddCheck(container, c) {
+    const el = document.createElement('div');
+    el.className = 'ts-check';
+    container.appendChild(el);
+    tsUpdateCheck(el, c);
+    return el;
+  }
+  function tsUpdateCheck(el, c) {
+    el.innerHTML = `<div class="ts-check-row"><span class="ts-ico ${c.status}">${TS_ICON[c.status] || ''}</span><span class="ts-label"></span></div>`;
+    el.querySelector('.ts-label').textContent = c.label;
+    if (c.detail) { const d = document.createElement('div'); d.className = 'ts-detail'; d.textContent = c.detail; el.appendChild(d); }
+    if (c.fix) { const f = document.createElement('div'); f.className = 'ts-fix'; f.innerHTML = c.fix; el.appendChild(f); }
+  }
+
+  function tsPing(ip) {
+    const ctrl = new AbortController();
+    const to = setTimeout(() => ctrl.abort(), 3000);
+    return fetch(`http://${ip}:${PORT}/ping`, { signal: ctrl.signal, cache: 'no-store' })
+      .then((r) => r.ok).catch(() => false).then((v) => { clearTimeout(to); return v; });
+  }
+
+  function tsRunSelfChecks(container) {
+    container.innerHTML = '';
+
+    if (!LAN_IPS.length) {
+      tsAddCheck(container, { status: 'fail', label: 'No LAN address detected',
+        detail: "The server has no Wi-Fi/Ethernet address, so phones can't reach it over Wi-Fi.",
+        fix: '<p>The laptop is offline, on no network, or the server was bound to localhost. Connect to Wi-Fi and refresh this page. For wired QA, use Android over USB with <code>adb reverse</code>.</p>' });
+    } else {
+      tsAddCheck(container, { status: 'pass', label: 'LAN address detected',
+        detail: (LAN_IPS.length > 1 ? `Found ${LAN_IPS.length} addresses; advertising ` : 'Advertising ') + `${LAN_IPS[0].ip} (${LAN_IPS[0].iface}).` });
+    }
+
+    const allIfaces = (BOUND_HOST === '0.0.0.0' || BOUND_HOST === '::' || BOUND_HOST === '');
+    if (allIfaces) {
+      tsAddCheck(container, { status: 'pass', label: 'Listening on all interfaces', detail: `Bound to ${BOUND_HOST || '0.0.0.0'} — it accepts LAN connections.` });
+    } else if (BOUND_HOST === '127.0.0.1' || BOUND_HOST === 'localhost' || BOUND_HOST === '::1') {
+      tsAddCheck(container, { status: 'fail', label: 'Server bound to localhost',
+        detail: `Started with HOST=${BOUND_HOST}, so it only accepts connections from this machine. No phone can reach it.`,
+        fix: '<p>Restart without the localhost bind — <code>node server.mjs</code> defaults to <code>HOST=0.0.0.0</code>.</p>' });
+    } else {
+      tsAddCheck(container, { status: 'warn', label: 'Bound to a single interface',
+        detail: `Started with HOST=${BOUND_HOST}. Only that interface accepts connections — make sure it's the one your phone is on.` });
+    }
+
+    const virtual = LAN_IPS.filter((c) => VIRTUAL_IFACE.test(c.iface));
+    if (virtual.length) {
+      const onlyVirtual = virtual.length === LAN_IPS.length;
+      tsAddCheck(container, { status: onlyVirtual ? 'warn' : 'info',
+        label: onlyVirtual ? 'Only VPN/virtual networks found' : 'VPN/virtual interfaces present',
+        detail: virtual.map((v) => `${v.ip} (${v.iface})`).join(', ') + " — phones can't route to these.",
+        fix: onlyVirtual
+          ? '<p>The only addresses found are VPN/virtual adapters. Disconnect the VPN or connect the laptop to normal Wi-Fi, then refresh.</p>'
+          : "<p>These appear in the address picker but won't work for a phone. Pick a <b>192.168.x</b> or <b>10.x</b> address matching your phone's Wi-Fi.</p>" });
+    }
+
+    tsAddCheck(container, sseConnected
+      ? { status: 'pass', label: 'Realtime stream connected', detail: 'This dashboard is receiving live updates from the server.' }
+      : { status: 'fail', label: 'Realtime stream down', detail: "This dashboard isn't connected to the server.",
+          fix: '<p>The server may have restarted. Refresh this page to start a fresh session.</p>' });
+
+    if (devices.size) {
+      tsAddCheck(container, { status: 'pass', label: `${devices.size} device${devices.size > 1 ? 's' : ''} already connected`, detail: 'At least one device has reached the server — pairing works.' });
+    } else {
+      tsAddCheck(container, { status: 'info', label: 'No device has connected yet', detail: 'Use the phone test below to check whether a device can reach this laptop.' });
+    }
+
+    if (LAN_IPS.length) {
+      const row = tsAddCheck(container, { status: 'pending', label: 'Testing reachability from this browser…' });
+      tsPing(LAN_IPS[0].ip).then((ok) => {
+        if (ok) tsUpdateCheck(row, { status: 'pass', label: 'Server reachable on its LAN address', detail: `This browser reached ${LAN_IPS[0].ip}:${PORT} — the server is listening on that interface.` });
+        else tsUpdateCheck(row, { status: 'fail', label: "Can't reach the server on its LAN address",
+          detail: `This browser couldn't reach ${LAN_IPS[0].ip}:${PORT}. If even this machine can't, no phone can.`,
+          fix: '<p>Likely a <b>firewall</b> blocking the port, or the server is bound to localhost. macOS: allow incoming for <code>node</code> in <b>System Settings → Network → Firewall</b>. Windows: approve <b>Node.js</b> on <b>Private networks</b> in the Defender prompt.</p>' });
+      });
+    }
+  }
+
+  function tsRenderProbeResults(resultsEl, data) {
+    clearTimeout(diagTimer);
+    const results = (data && data.report && data.report.results) || [];
+    const ua = (data && data.report && data.report.ua) || '';
+    const phone = /iphone|ipad/i.test(ua) ? 'iPhone' : /android/i.test(ua) ? 'Android device' : 'The phone';
+    resultsEl.hidden = false;
+    resultsEl.innerHTML = '';
+    results.slice().sort((a, b) => (b.ok ? 1 : 0) - (a.ok ? 1 : 0)).forEach((r) => {
+      const el = document.createElement('div');
+      el.className = 'ts-pr ' + (r.ok ? 'ok' : 'bad');
+      el.innerHTML = '<span class="dot"></span><span class="ip"></span><span class="verdict"></span>';
+      el.querySelector('.ip').textContent = r.ip + (r.iface ? ` · ${r.iface}` : '');
+      el.querySelector('.verdict').textContent = r.ok ? `reachable · ${r.ms}ms` : 'no route';
+      if (r.ok) {
+        const btn = document.createElement('button');
+        btn.type = 'button'; btn.className = 'pick';
+        btn.textContent = r.ip === lanIpSel ? 'in use' : 'use this';
+        btn.addEventListener('click', () => {
+          applyLanIp(r.ip);
+          resultsEl.querySelectorAll('.pick').forEach((b) => { b.textContent = 'use this'; });
+          btn.textContent = 'in use';
+          toast(`Now advertising ${r.ip}`);
+        });
+        el.appendChild(btn);
+      }
+      resultsEl.appendChild(el);
+    });
+    const reachable = results.filter((r) => r.ok);
+    if (reachable.length && !reachable.some((r) => r.ip === lanIpSel)) applyLanIp(reachable[0].ip);
+    const note = document.createElement('div');
+    note.className = 'ts-fix';
+    if (reachable.length) {
+      note.innerHTML = `<p><b>${phone} can reach this laptop on ${reachable[0].ip}.</b> The connect QR now uses that address — re-scan it, or paste the LAN URL into the Jelly toolbar.</p>`;
+    } else {
+      note.innerHTML = `<p><b>${phone} loaded the test but reached no address back.</b> Unusual — usually a firewall or isolation rule that allowed the page but blocks the API port. Check the laptop firewall, or use Android over USB.</p>`;
+    }
+    resultsEl.appendChild(note);
+  }
+
+  function tsStartPhoneProbe(mount) {
+    const probe = mount.querySelector('.ts-probe');
+    const resultsEl = mount.querySelector('.ts-probe-results');
+    const para = probe.querySelector('.ts-probe-text p');
+    resultsEl.hidden = true;
+    resultsEl.innerHTML = '';
+    const ip = LAN_IPS[0] && LAN_IPS[0].ip;
+    if (ip && renderQR(probe.querySelector('canvas'), `http://${ip}:${PORT}/diag?t=${TOKEN}`, 4)) {
+      para.textContent = "Scan with the phone you're connecting. It tests every address and reports back here in a few seconds.";
+    } else {
+      para.textContent = 'No LAN address to test from. Connect the laptop to Wi-Fi and refresh.';
+      return;
+    }
+    clearTimeout(diagTimer);
+    onDiagReport = (data) => tsRenderProbeResults(resultsEl, data);
+    diagTimer = setTimeout(() => {
+      if (resultsEl.hasChildNodes()) return;
+      resultsEl.hidden = false;
+      const el = document.createElement('div');
+      el.className = 'ts-pr bad';
+      el.innerHTML = '<span class="dot"></span><span class="ip">No response from the phone</span>';
+      resultsEl.appendChild(el);
+      const fix = document.createElement('div');
+      fix.className = 'ts-fix';
+      fix.innerHTML = `<p>The phone hasn't reported in. If it can't even load the test page, it can't reach this laptop at all — that points to <b>different Wi-Fi networks</b>, <b>client isolation</b> (guest/corporate Wi-Fi), a <b>firewall</b>, or an <b>MDM</b> policy blocking local network.</p><p>Confirm the phone is on the same Wi-Fi and scan again. On Android, bypass Wi-Fi with USB: <code>adb reverse tcp:${PORT} tcp:${PORT}</code>.</p>`;
+      resultsEl.appendChild(fix);
+    }, 35000);
+  }
+
+  function buildTroubleshooter() {
+    const root = document.createElement('div');
+    root.innerHTML = TS_HTML;
+    const mount = root.firstElementChild;
+    const runBtn = mount.querySelector('.ts-run');
+    const results = mount.querySelector('.ts-results');
+    runBtn.addEventListener('click', () => {
+      results.hidden = false;
+      runBtn.querySelector('.ts-run-label').textContent = 'Re-run checks';
+      tsRunSelfChecks(mount.querySelector('.ts-self'));
+      tsStartPhoneProbe(mount);
+    });
+    return mount;
+  }
+
+  function openTroubleshoot() {
+    const mount = $('troubleshoot-mount');
+    mount.innerHTML = '';
+    mount.appendChild(buildTroubleshooter());
+    $('troubleshoot-modal').hidden = false;
+    setTimeout(() => $('troubleshoot-close').focus(), 0);
+  }
+  function closeTroubleshoot() {
+    $('troubleshoot-modal').hidden = true;
+    $('troubleshoot-mount').innerHTML = '';
+    onDiagReport = null;
+    clearTimeout(diagTimer);
+  }
+  $('troubleshoot-btn').addEventListener('click', openTroubleshoot);
+  $('troubleshoot-close').addEventListener('click', closeTroubleshoot);
+  $('troubleshoot-modal').addEventListener('click', (e) => { if (e.target === $('troubleshoot-modal')) closeTroubleshoot(); });
 
   // ── State ──────────────────────────────────────────────────────────────
   const annotations = new Map();   // id -> annotation
@@ -1086,6 +1546,7 @@
   $('confirm-modal').addEventListener('click', (e) => { if (e.target === $('confirm-modal')) closeConfirm(false); });
   window.addEventListener('keydown', (e) => {
     if (e.key === 'Escape' && !$('connect-modal').hidden) { closeConnectModal(); return; }
+    if (e.key === 'Escape' && !$('troubleshoot-modal').hidden) { closeTroubleshoot(); return; }
     if ($('confirm-modal').hidden) return;
     if (e.key === 'Escape') closeConfirm(false);
     else if (e.key === 'Enter') {
@@ -1165,6 +1626,12 @@
       renderFilters();
       renderDevices();
       render();
+    });
+
+    // Phone-side diagnostic report, relayed from public/diag.html. Only the
+    // open troubleshooter cares; it registers onDiagReport while waiting.
+    es.addEventListener('diag', (ev) => {
+      try { if (onDiagReport) onDiagReport(JSON.parse(ev.data)); } catch {}
     });
 
     es.addEventListener('clear', () => {
