@@ -1,6 +1,6 @@
 {
   "name": "jelly-local-sync",
-  "version": "0.2.1",
+  "version": "0.3.0",
   "description": "Local-only browser viewer for Jelly QA annotations. Open in browser, paste the per-session URL into the SDK, see annotations stream in over USB / LAN. Nothing leaves the machine.",
   "type": "module",
   "bin": {
