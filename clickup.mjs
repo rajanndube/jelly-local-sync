@@ -248,6 +248,37 @@ export async function handleClickup(req, res, url, ctx) {
     return true;
   }
 
+  // Connect with a personal API token (pk_…), the no-OAuth path. ClickUp's v2
+  // API accepts a personal token in the same raw Authorization header cu() uses
+  // for OAuth tokens, so we just validate it against /team and persist exactly
+  // like the OAuth callback does. No client id/secret, no popup, no app.
+  if (m === '/clickup/token' && req.method === 'POST') {
+    const b = (await readJson(req)) ?? {};
+    const token = (b.token || '').trim();
+    if (!token) { send(res, 400, { error: 'token is required' }); return true; }
+    try {
+      const teamRes = await fetch(`${CLICKUP_API}/team`, { headers: { Authorization: token } });
+      if (!teamRes.ok) {
+        send(res, teamRes.status === 401 ? 401 : 502,
+          { error: teamRes.status === 401 ? 'invalid token' : `clickup ${teamRes.status}` });
+        return true;
+      }
+      const teams = (await teamRes.json().catch(() => ({})))?.teams ?? [];
+      if (!teams.length) { send(res, 502, { error: 'token has no workspaces' }); return true; }
+      const first = teams[0];
+      await saveToken({
+        access_token: token,
+        teamId: first.id,
+        teamName: first.name,
+        teams: teams.map((t) => ({ id: t.id, name: t.name })),
+      });
+      send(res, 200, { ok: true, teamName: first.name });
+    } catch (e) {
+      send(res, 502, { error: e.message });
+    }
+    return true;
+  }
+
   // Spaces in the connected workspace, for the first dropdown.
   if (m === '/clickup/spaces' && req.method === 'GET') {
     try {

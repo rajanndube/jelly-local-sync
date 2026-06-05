@@ -3,7 +3,7 @@
 Push synced annotations straight into ClickUp as Tasks or Bugs, prefilled with
 the comment, severity → priority, and the screenshot attached.
 
-This is a **one-time, ~5-minute** setup. After it, anyone using this machine
+This is a **one-time, ~2-minute** setup. After it, anyone using this machine
 clicks **Connect → ClickUp**, approves once (reusing their existing ClickUp
 login — no token typing), and the **Create ticket** button on every annotation
 card just works.
@@ -27,12 +27,17 @@ button included) and fields for the keys.
 
 ### 2. Create a ClickUp OAuth app
 
-1. ClickUp → your avatar (bottom-left) → **Settings**.
-2. Sidebar → **ClickUp API** (under *Integrations*) → **Create an App**.
-3. **App Name:** `Jelly Local Sync` (anything).
-4. **Redirect URL:** paste the value the setup form shows — exactly. It's
-   `http://localhost:<PORT>/clickup/callback`, port-matched to your server.
-5. Save. ClickUp shows a **Client ID** and **Client Secret**.
+Click **Open ClickUp Apps page** in the setup form — it opens
+`app.clickup.com/settings/apps` in a new tab (and pre-copies your Redirect URL
+to the clipboard). If ClickUp drops you on your workspace home instead, go
+**avatar → Settings → Apps** in the sidebar. Then:
+
+1. Click **Create new app**.
+2. **App Name:** `Jelly Local Sync` (anything).
+3. **Redirect URL:** paste the value from your clipboard — exactly. It's
+   `http://localhost:<PORT>/clickup/callback`, port-matched to your server (the
+   setup form also shows it with its own **Copy** button).
+4. Save. ClickUp shows a **Client ID** and **Client Secret**.
 
 ### 3. Paste the keys → Connect
 
