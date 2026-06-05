@@ -23,6 +23,7 @@ import { networkInterfaces } from 'node:os';
 import { fileURLToPath } from 'node:url';
 import { spawn } from 'node:child_process';
 import path from 'node:path';
+import { initClickup, handleClickup } from './clickup.mjs';
 
 const PORT = parseInt(process.env.PORT ?? '7777', 10);
 const HOST = process.env.HOST ?? '0.0.0.0';
@@ -63,6 +64,29 @@ function getRoom(token, create = false) {
     rooms.set(token, r);
   }
   return r;
+}
+
+// The "current" session token. Unlike the old behaviour (every GET / minted a
+// fresh token, so a browser refresh silently abandoned the room and looked like
+// data loss), the server now holds one active session token and serves it on
+// every GET /. A refresh therefore re-joins the same room and the feed survives.
+// A new session is created only deliberately — POST /session/new — or implicitly
+// by restarting the process (memory is wiped, a fresh token is minted on first
+// visit). It's minted lazily on first GET / so we don't reserve a room nobody
+// opened.
+let currentToken = null;
+function activeToken() {
+  if (!currentToken) { currentToken = newToken(); getRoom(currentToken, true); }
+  return currentToken;
+}
+// Abandon the current session and start a fresh one. The previous room (with its
+// annotations + buffered images) is dropped so memory doesn't grow per click and
+// the new session truly starts empty.
+function rotateSession() {
+  if (currentToken) rooms.delete(currentToken);
+  currentToken = newToken();
+  getRoom(currentToken, true);
+  return currentToken;
 }
 
 // Stable per-device key for this room. The SDK sends no device id, so we use
@@ -235,11 +259,12 @@ const server = http.createServer(async (req, res) => {
 
     if (req.method === 'OPTIONS') return send(res, 204, '');
 
-    // Index, fresh token every visit, served as a static page that knows
-    // its own token. Browser refresh re-fetches and rotates.
+    // Index, served as a static page that knows its own session token. Serves
+    // the *current* session token (not a fresh one) so a browser refresh
+    // re-joins the same room and the feed survives. A new session comes only
+    // from POST /session/new or a process restart.
     if (m === '/' && req.method === 'GET') {
-      const token = newToken();
-      getRoom(token, true);
+      const token = activeToken();
       const html = await readFile(path.join(__dirname, 'public', 'index.html'), 'utf-8');
       const cands = lanCandidates();
       const lan = cands[0]?.address ?? null;
@@ -259,17 +284,34 @@ const server = http.createServer(async (req, res) => {
       });
     }
 
-    // Static asset shipped alongside the page (qrcode.js, etc.). Whitelist by
-    // exact filename so the path traversal surface is zero. Cached aggressively
-    // since these files only change on a new release.
-    const STATIC_ASSETS = { '/qrcode.js': 'application/javascript; charset=utf-8' };
+    // Static assets shipped alongside the page. Whitelist by exact filename so
+    // the path-traversal surface is zero. The vendored qrcode.js only changes on
+    // a release, so it's cached hard; app.css/app.js are our own source split out
+    // of index.html and change often, so they're served no-store (a refresh
+    // always reflects the latest edit, matching the no-build-step workflow).
+    const STATIC_ASSETS = {
+      '/qrcode.js': { ct: 'application/javascript; charset=utf-8', cache: 'public, max-age=3600' },
+      '/app.js': { ct: 'application/javascript; charset=utf-8', cache: 'no-store' },
+      '/app.css': { ct: 'text/css; charset=utf-8', cache: 'no-store' },
+    };
     if (req.method === 'GET' && STATIC_ASSETS[m]) {
+      const { ct, cache } = STATIC_ASSETS[m];
       const file = await readFile(path.join(__dirname, 'public', m.slice(1)), 'utf-8');
-      return send(res, 200, file, {
-        'content-type': STATIC_ASSETS[m],
-        'cache-control': 'public, max-age=3600',
-      });
+      return send(res, 200, file, { 'content-type': ct, 'cache-control': cache });
     }
+
+    // Start a fresh session: rotate the current token and drop the old room.
+    // Process-global (like /clickup/*), the page reloads after this so GET /
+    // hands it the new token. The previously connected devices must re-scan or
+    // re-paste the new session URL.
+    if (m === '/session/new' && req.method === 'POST') {
+      const token = rotateSession();
+      return send(res, 200, { token });
+    }
+
+    // ClickUp integration routes (process-global, /clickup/*). Self-contained
+    // in clickup.mjs; returns true once it has owned the response.
+    if (await handleClickup(req, res, url, { send, readJson, rooms, port: PORT })) return;
 
     // Liveness probe used by the phone-side troubleshooter (public/diag.html)
     // to test whether a given LAN address is reachable. Token-agnostic and
@@ -327,6 +369,14 @@ const server = http.createServer(async (req, res) => {
       })}\n\n`);
       for (const a of room.annotations) {
         res.write(`event: annotation\ndata: ${JSON.stringify(a)}\n\n`);
+        // Re-advertise any buffered screenshot so a freshly-loaded page (e.g.
+        // after a refresh, now that the session persists) knows the image
+        // exists and renders <img> instead of the "No screenshot" placeholder.
+        // The bytes never leave the server in SSE; the page fetches them via
+        // GET /annotations/:id/image once it sees this event.
+        if (room.images.has(a.id)) {
+          res.write(`event: image\ndata: ${JSON.stringify({ id: a.id })}\n\n`);
+        }
       }
       room.sse.add(res);
       const ka = setInterval(() => {
@@ -535,6 +585,9 @@ server.on('error', (err) => {
   }
   throw err;
 });
+
+// Restore any persisted ClickUp connection before we start accepting requests.
+await initClickup();
 
 const HOME_URL = `http://localhost:${PORT}`;
 // Interactive only when we own a real terminal on both ends. Piped/CI runs skip

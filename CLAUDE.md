@@ -25,9 +25,9 @@ PORT=8080 HOST=127.0.0.1 node server.mjs   # bind strict-localhost
 
 The dashboard auto-opens on launch. In an interactive terminal, press `o` to (re)open the dashboard. To quit, press Ctrl+C twice: the first press arms and shows a live per-second countdown (`Press Ctrl+C again to quit  (5s)`), a second within the window runs the clean shutdown that closes the server and frees the port; if the countdown lapses it disarms (`Quit cancelled, still running.`). There is no `q` quit. Because interactive mode puts stdin in raw mode, **Ctrl+Z no longer suspends** the process (it's the suspend-still-holding-the-port footgun); it's delivered as a keystroke and ignored with a hint. Piped/CI runs (no TTY) skip the hotkeys and exit cleanly on SIGINT/SIGTERM. See the launch block at the bottom of `server.mjs` (`INTERACTIVE`, `startInteractive`, `onKey`, `armOrQuit`, `renderCountdown`, `disarm`, `shutdown`).
 
-Then open `http://localhost:7777` in a browser. The page issues a fresh token on every `GET /` (refresh rotates). The layout is a persistent **left rail + main column**:
+Then open `http://localhost:7777` in a browser. The server holds **one current session token** and serves it on every `GET /`, so a **browser refresh re-joins the same room and the feed survives** (it no longer silently rotates and looks like data loss). A fresh session is created only deliberately — the rail-footer **New session** button → `POST /session/new`, which rotates the token and drops the old room — or by restarting the process (memory wiped, a new token minted on the next visit). The layout is a persistent **left rail + main column**:
 
-- **Left rail**, brand + server-connection dot; a live **Devices** list (one row per connected device: colour swatch, label, live/stale dot, per-device annotation tally; click to filter the feed); and a sticky **rail footer** pinned bottom-left holding **Connect a device** (shown once ≥1 device is paired) and **Troubleshoot** (always shown, opens the connection diagnostic, see below).
+- **Left rail**, brand + server-connection dot; a live **Devices** list (one row per connected device: colour swatch, label, live/stale dot, per-device annotation tally; click to filter the feed); and a sticky **rail footer** pinned bottom-left holding **Connect a device** (shown once ≥1 device is paired), **Connect** (integrations), **Troubleshoot** (opens the connection diagnostic, see below), and **New session** (confirm-gated; rotates the session and reloads).
 - **Main column**, before any device pairs, a centred **"Scan to connect" hero** (the QR is the hero, paste-URL is the quiet fallback, per-platform setup steps tuck behind a disclosure). When more than one LAN interface is detected, a prominent **address picker** sits under the QR (one selectable row per address, labelled with its interface) so the user can switch to the one their phone is on. Once a device pairs, this flips to the **annotation feed** (newest first) with device **filter chips**, a per-card device tag, per-card Copy/Delete, and bulk Delete-all.
 
 Connecting more devices later opens the same connect panel in a modal. **Multiple devices can point at one URL simultaneously**, each is its own row, and its annotations carry its device tag.
@@ -37,19 +37,23 @@ No `npm install` step. Zero runtime deps.
 ## Architecture (key files)
 
 - `server.mjs`, single-file Node ESM HTTP server. Built-in `http`, `crypto`, `fs`, `os`. Per-token rooms held entirely in memory. `lanCandidates()` ranks every non-internal IPv4 by interface name + address range (physical `en*`/`eth*`/`wlan*` and private 192.168/10/172 ranges win; VPN/Docker/VM adapters and link-local lose) so the advertised QR address isn't a dead VPN/virtual one, it returns the full ranked list, not just the top pick.
-- `public/index.html`, single-page app (HTML + CSS + JS inline). Vanilla JS, no framework. Left rail + main column shell. Connects to SSE, tracks a `Map` of devices, renders QR via the vendored library (`renderQR` is the generic rasteriser; `drawQR` wraps it for the connect QR), handles copy/clipboard/modals, the address picker, and the troubleshooter.
+- `public/index.html`, the page markup only (left rail + main column shell + modals). Ends with a tiny inline bootstrap `<script>` that sets `window.JELLY = {token, port, host, lanIp, lanIps}` — the **only** server-templated values — then loads `/app.js`. `__TOKEN__`/`__PORT__`/`__HOST__`/`__LAN_IP__`/`__LAN_IPS__` placeholders live in that bootstrap.
+- `public/app.css`, all the styles (was the inline `<style>`). Linked via `<link rel="stylesheet" href="/app.css">`, served no-store.
+- `public/app.js`, the whole single-page app as one vanilla-JS IIFE (no framework, no modules, no build step — just split out of `index.html`). Reads its globals from `window.JELLY`. Connects to SSE, tracks a `Map` of devices, renders QR via the vendored library (`renderQR` is the generic rasteriser; `drawQR` wraps it for the connect QR), handles copy/clipboard/modals, the address picker, the troubleshooter, the ClickUp integration (`cuLogo`, connect/ticket/bulk flows), and the New-session button. Served no-store so edits show on refresh.
 - `public/diag.html`, tiny **phone-side reachability probe** page, served (templated) at `GET /diag`. The troubleshooter's QR points the phone here; it fetches `/ping` on every candidate address, shows the phone a pass/fail list, and POSTs the results to `/r/:token/diag` to be relayed to the dashboard. Zero deps, self-contained, no QR library.
 - `public/qrcode.js`, **VENDORED** Kazuhiko Arase qrcode-generator (~2300 lines, MIT, served as `/qrcode.js`). **Do not replace with a hand-rolled implementation**, we tried once and shipped subtly broken QRs (format-info placement bug). If the vendored file needs updating, copy fresh from `node_modules/qrcode-generator/dist/qrcode.js` (don't add the npm dep, copy the file).
 - `package.json`, name, bin field, zero dependencies.
 
 ## Wire contract
 
-All API endpoints live under `/r/:token/...`. The token is 64-bit random hex generated fresh per `GET /`. Anyone with the URL has full access (local capability, no other auth).
+Per-session API endpoints live under `/r/:token/...`. The token is 64-bit random hex held as the server's **current session token** (one at a time, see "Per-token rooms"). Anyone with the URL has full access (local capability, no other auth). A few control/integration routes are **process-global** (no token): `/session/new`, `/clickup/*` (self-contained in `clickup.mjs`), `/ping`. These are reachable by anything that can reach the host:port (i.e. any device on the LAN, not only a holder of the session URL), so the tool **assumes a trusted local network** — consistent with its "nothing leaves the machine" posture. Don't expose the server to an untrusted network.
 
 | Method | Path                                  | Notes |
 |--------|---------------------------------------|-------|
-| GET    | `/`                                   | Mints a fresh token, serves the templated page (`__TOKEN__`, `__PORT__`, `__LAN_IP__` placeholders replaced). `cache-control: no-store` so refresh always rotates. |
+| GET    | `/`                                   | Serves the templated page for the **current** session token (`__TOKEN__`, `__PORT__`, `__HOST__`, `__LAN_IP__`, `__LAN_IPS__` placeholders replaced in the inline bootstrap). `cache-control: no-store`. A refresh re-joins the same session — it no longer rotates. |
+| POST   | `/session/new`                        | Rotates the current session token and drops the old room, returns `{token}`. The page reloads afterward so `GET /` hands it the new token (empty feed). Devices must re-scan/re-paste the new URL. |
 | GET    | `/qrcode.js`                          | Vendored QR library. `cache-control: public, max-age=3600`. |
+| GET    | `/app.css` · `/app.js`                | The page's styles + app, split out of `index.html`. `cache-control: no-store` (edits show on refresh, no build step). |
 | GET    | `/r/:token/events`                    | SSE stream. Replays all known devices + existing annotations on connect. Event types: `hello`, `device`, `annotation`, `image`, `delete`, `clear`, `diag`. 25s keepalive comments. |
 | POST   | `/r/:token/hello`                     | Device identity + heartbeat. Body `{platform, model, manufacturer, osVersion, appName, sdkVersion}`. Upserts a device in `room.devices` **keyed by client IP** (the only per-device discriminator on the wire, the body has no device id), refreshes its `lastHelloMs`, broadcasts a `device` SSE event. SDK sends every 12s. |
 | GET    | `/r/:token/sessions`                  | Lists sessions in this room. |
@@ -80,9 +84,9 @@ devices: Map<deviceKey, DeviceInfo>  // every SDK that has hello'd (or posted), 
 
 `deviceKey` is the normalised client IP (`clientKey()` strips the `::ffff:` prefix and folds `::1` → `127.0.0.1`). Each device object is `{key, platform, model, manufacturer, osVersion, appName, sdkVersion, firstSeenMs, lastHelloMs}`; `lastHelloMs` is `null` for a device first seen via an annotation rather than a `/hello`. Devices are never removed within a session (they go stale, not gone).
 
-Each `GET /` mints a new token and a new empty room. Old rooms persist in memory until process exit but are unreachable without the URL. There is no GC, fine for a tool that's restarted between sessions.
+The server keeps one **current session token** (`currentToken`, minted lazily by `activeToken()` on the first `GET /`). Every `GET /` serves that same token, so a refresh re-joins the same room and the feed survives. `POST /session/new` calls `rotateSession()`, which deletes the current room and mints a new token (so a new session truly starts empty and old images don't accumulate). A process restart wipes memory and mints fresh on the next visit. There is no GC beyond the per-rotation delete, fine for a tool that's restarted between sessions.
 
-## Page UI sections (where to look in `public/index.html`)
+## Page UI sections (where to look in `public/app.js` + `public/index.html`)
 
 - **Brand + server dot**, top of the left rail. The dot is green when the SSE stream is connected, amber-pulsing while reconnecting.
 - **Devices list** (`renderDevices`), one `button.device-row` per device: colour swatch (stable palette colour assigned in arrival order via `colorFor`), label (`deviceLabel`), a live/stale dot driven by `lastSeenLocalMs`, and a per-device annotation tally. Click to filter the feed. Empty state is the simplified "Scan your QR code" hint. Per-second `tickDeviceStatuses()` updates the status text **in place** (no rebuild, so the live-dot pulse doesn't restart).
@@ -93,7 +97,7 @@ Each `GET /` mints a new token and a new empty room. Old rooms persist in memory
 - **Annotation feed** (`render` / `renderCard`), newest first, filtered by `filterKey`. Each card leads with a device tag (coloured dot + label + platform), then image, comment, intent/severity/kind badges, metadata, and per-card actions (Copy markdown/comment/image, Open, Delete). Only **genuinely new** cards animate (tracked via `renderedIds`) so a re-render on filter/update doesn't replay the whole list. "Delete all" sits in the feed header.
 - **Generic confirmation modal**, Promise-based `showConfirm({title, body, confirmText, danger})`. Cancel auto-focuses on `danger: true`.
 
-JS lives at the bottom of `index.html` inside an IIFE, no modules, no build step. Server-templated globals are `TOKEN`, `PORT`, `LAN_IP` at the top of the IIFE.
+JS lives in `public/app.js` as one IIFE, no modules, no build step. Server-templated globals (`TOKEN`, `PORT`, `BOUND_HOST`, `LAN_IP`, `LAN_IPS`) are read from `window.JELLY` at the top of the IIFE; that object is the only thing the `index.html` inline bootstrap injects.
 
 ## SSE event types (server → page)
 
@@ -143,11 +147,11 @@ The only contract this server enforces is the `Session` response shape (must inc
 
 - **"couldn't reach endpoint, N failed"** from the SDK's manual-sync button: usually a Session decode failure on the Android side, not a network problem. Curl `POST /r/:token/sessions -d '{"url":"x"}'` and verify the response includes `status`. If you change the response shape, restart Node, there's no hot reload.
 - **Device shows "Connected" but no annotations stream in**: `/hello` works (no body decode) but `/sessions` POST or `/sessions/:sid/annotations` POST is failing. Check `adb logcat -s JellySync` (the Android SDK logs the underlying exception on every `runCatching` failure since recent versions).
-- **QR doesn't scan**: confirm the page detected a LAN IP (`const LAN_IP` near the top of the IIFE is non-empty). If absent, the connect hero shows a greyed placeholder instead of a QR. Otherwise verify in a separate jsQR test (see `git log` for the verification harness used during the encoder switch).
+- **QR doesn't scan**: confirm the page detected a LAN IP (`const LAN_IP` near the top of the IIFE in `app.js`, sourced from `window.JELLY.lanIp`, is non-empty). If absent, the connect hero shows a greyed placeholder instead of a QR. Otherwise verify in a separate jsQR test (see `git log` for the verification harness used during the encoder switch).
 - **Device row says "Last seen Xs ago" but it's still active**: liveness is anchored per device from `serverNow - lastHelloMs` at hello time, then ticked locally. A device only goes stale after `FRESH_MS` (18s) without a `/hello`, longer than the SDK's 12s heartbeat, so a healthy device stays green.
 - **Annotations all land under one device row**: expected when devices share an IP (e.g. multiple `adb reverse` tunnels, or NAT), see "Device attribution is by client IP" above.
 - **Browser stuck on "Reconnecting…"**: the server probably restarted. SSE auto-reconnects with the EventSource default retry. If it doesn't, the page-side `es.onerror` sets `sseConnected = false` and `renderServerDot()` shows the amber-pulsing server dot.
 
 ## Build / publish
 
-There is no build step. `node server.mjs` runs as-is. To make a release, just push the repo or distribute the four files (`server.mjs`, `public/index.html`, `public/diag.html`, `public/qrcode.js`) along with `package.json`. The `bin` field in `package.json` exposes the binary name `jelly-local-sync` for `npx`.
+There is no build step. `node server.mjs` runs as-is. To make a release, just push the repo or distribute `server.mjs`, `clickup.mjs`, and the `public/` files (`index.html`, `app.css`, `app.js`, `diag.html`, `qrcode.js`) along with `package.json`. The `bin` field in `package.json` exposes the binary name `jelly-local-sync` for `npx`. (`package.json`'s `files` array already lists `server.mjs`, `clickup.mjs`, and `public/`.)
