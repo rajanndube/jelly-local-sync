@@ -44,14 +44,20 @@ let failed = false;
 try {
   await waitForServer();
 
-  // GET / serves the templated page and mints a token.
+  // GET / serves the templated page carrying the current session token.
   const pageRes = await fetch(`${BASE}/`);
   ok(pageRes.status === 200, 'GET / returns 200');
-  ok(pageRes.headers.get('cache-control') === 'no-store', 'GET / is no-store (token rotates)');
+  ok(pageRes.headers.get('cache-control') === 'no-store', 'GET / is no-store');
   const page = await pageRes.text();
-  const m = page.match(/TOKEN = '([a-f0-9]+)'/);
+  // The token lives in the inline window.JELLY bootstrap (the only templated
+  // values); the rest of the app is the static /app.js.
+  const m = page.match(/token:\s*'([a-f0-9]+)'/);
   ok(m && m[1] && m[1].length >= 16, 'GET / embeds a 64-bit hex token');
   const token = m[1];
+
+  // The split-out static assets are served (no build step).
+  ok((await fetch(`${BASE}/app.js`)).status === 200, 'GET /app.js returns 200');
+  ok((await fetch(`${BASE}/app.css`)).status === 200, 'GET /app.css returns 200');
 
   // POST /sessions, Android requires `status` in the response or decode throws.
   const sesRes = await fetch(`${BASE}/r/${token}/sessions`, {
