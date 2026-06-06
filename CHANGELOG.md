@@ -6,6 +6,20 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.4.1] - 2026-06-06
+
+### Changed
+- Maintainer contact email updated to `rajan.reachme@gmail.com` (`package.json`,
+  `SECURITY.md`, `CODE_OF_CONDUCT.md`).
+- `SECURITY.md` threat model corrected: the server holds one persistent session
+  token served on every `GET /` (a refresh re-joins the room), not a fresh token
+  per request; documents the token-agnostic control routes.
+
+### Added
+- `CODE_OF_CONDUCT.md` (Contributor Covenant 2.1).
+- README *License & acknowledgements* section crediting the vendored
+  `qrcode-generator` (MIT, Kazuhiko Arase).
+
 ## [0.4.0] - 2026-06-05
 
 ### Added
