@@ -134,4 +134,10 @@ The process-global control routes (`/session/new`, `/clickup/*`) carry no token,
 - [**Abhishek PR**](https://github.com/abhishekpr-qe) — ClickUp integration
 - [**Rajan Dube**](https://github.com/rajanndube) — maintainer
 
-New contributors welcome — see [CONTRIBUTING.md](CONTRIBUTING.md).
+New contributors welcome — see [CONTRIBUTING.md](CONTRIBUTING.md). Participation is governed by our [Code of Conduct](CODE_OF_CONDUCT.md).
+
+## License & acknowledgements
+
+MIT — see [LICENSE](LICENSE).
+
+Bundles [qrcode-generator](https://github.com/kazuhikoarase/qrcode-generator) by Kazuhiko Arase (MIT), vendored at `public/qrcode.js`. No other runtime dependencies.
