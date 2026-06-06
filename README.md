@@ -3,7 +3,7 @@
 [![npm version](https://img.shields.io/npm/v/jelly-local-sync.svg)](https://www.npmjs.com/package/jelly-local-sync)
 [![CI](https://github.com/rajanndube/jelly-local-sync/actions/workflows/ci.yml/badge.svg)](https://github.com/rajanndube/jelly-local-sync/actions/workflows/ci.yml)
 [![node](https://img.shields.io/node/v/jelly-local-sync.svg)](https://nodejs.org)
-[![license](https://img.shields.io/npm/l/jelly-local-sync.svg)](LICENSE)
+[![license](https://img.shields.io/badge/license-PolyForm%20Shield%201.0.0-blue.svg)](LICENSE)
 
 A zero-dependency local viewer for Jelly QA annotations. Open it in your browser, paste the per-session URL into the SDK on your phone, and annotations stream in over USB or LAN as image + markdown. Nothing leaves the machine.
 
@@ -138,6 +138,12 @@ New contributors welcome — see [CONTRIBUTING.md](CONTRIBUTING.md). Participati
 
 ## License & acknowledgements
 
-MIT — see [LICENSE](LICENSE).
+[PolyForm Shield 1.0.0](LICENSE) — source-available. You may use, modify, and
+distribute it freely, **except** to build a product that competes with Jelly.
+This isn't an OSI "open source" licence; it's a deliberate anti-compete stance.
+See [LICENSE](LICENSE) for the exact terms.
+
+Contributions are accepted under the [Developer Certificate of Origin](https://developercertificate.org/)
+— sign off your commits with `git commit -s`. See [CONTRIBUTING.md](CONTRIBUTING.md).
 
 Bundles [qrcode-generator](https://github.com/kazuhikoarase/qrcode-generator) by Kazuhiko Arase (MIT), vendored at `public/qrcode.js`. No other runtime dependencies.
